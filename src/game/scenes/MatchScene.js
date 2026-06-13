@@ -3,6 +3,7 @@ import { chooseCpuInput } from "../../../shared/cpu.js";
 import { STAGE } from "../../../shared/constants.js";
 import { createMatch, queueInput, stepMatch } from "../../../shared/match.js";
 import { createKeyboardInput } from "../input/inputMapper.js";
+import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
 import { createSocketClient } from "@game/net/socketClient.js";
 import { animationKey } from "../render/animationMap.js";
 
@@ -19,6 +20,7 @@ export class MatchScene extends Phaser.Scene {
     this.roomCode = data.roomCode || "";
     this.match = createMatch(this.mode);
     this.readPlayerInput = createKeyboardInput(this);
+    this.onlineInputLatch = createOnlineInputLatch();
     this.effectSprites = [];
     this.resultStarted = false;
 
@@ -58,7 +60,7 @@ export class MatchScene extends Phaser.Scene {
 
     if (this.mode !== "cpu") {
       if (this.roomCode && this.net) {
-        this.net.sendInput(this.roomCode, input);
+        this.net.sendInput(this.roomCode, this.onlineInputLatch.read(input, Math.min(delta, 50)));
       }
       return;
     }
@@ -85,7 +87,13 @@ export class MatchScene extends Phaser.Scene {
 
   async setupOnline(data) {
     this.net = createSocketClient();
-    const response = this.mode === "online-create" ? await this.net.createRoom() : await this.net.joinRoom(data.roomCode);
+    let response;
+
+    try {
+      response = this.mode === "online-create" ? await this.net.createRoom() : await this.net.joinRoom(data.roomCode);
+    } catch (error) {
+      response = { ok: false, error: error?.message };
+    }
 
     if (!response?.ok) {
       window.alert(response?.error || "Unable to join online room");
