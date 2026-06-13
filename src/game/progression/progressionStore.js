@@ -28,6 +28,7 @@ function normalizeProgression(value = DEFAULT_PROGRESSION) {
   const xp = Number.isFinite(savedXp) && savedXp > 0 ? Math.floor(savedXp) : 0;
   const savedPalettes = Array.isArray(saved.palettes) ? saved.palettes.filter((palette) => typeof palette === "string") : [];
   const palettes = [...new Set([...DEFAULT_PROGRESSION.palettes, ...savedPalettes])];
+  if (xp >= 300 && !palettes.includes("violet")) palettes.push("violet");
 
   return {
     xp,

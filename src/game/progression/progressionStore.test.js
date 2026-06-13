@@ -32,4 +32,10 @@ describe("progression store", () => {
     expect(progress).toEqual({ xp: 325, level: 2, palettes: ["blue", "orange", "violet"] });
     expect(JSON.parse(storage.get("pixel-arena-progress"))).toEqual(progress);
   });
+
+  it("normalizes violet unlocks for old saves with enough XP", () => {
+    storage.set("pixel-arena-progress", JSON.stringify({ xp: 300 }));
+
+    expect(loadProgression()).toEqual({ xp: 300, level: 2, palettes: ["blue", "orange", "violet"] });
+  });
 });
