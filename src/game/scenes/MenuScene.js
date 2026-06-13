@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { updateRoomCodeEntry } from "../input/roomCodeEntry.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -9,6 +10,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    this.joinCode = "";
+    this.joinMode = false;
     this.add.image(WIDTH / 2, HEIGHT / 2, "stage:city-beach").setDisplaySize(WIDTH, HEIGHT);
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x06111f, 0.52);
 
@@ -29,8 +32,15 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.createButton(82, 378, "Join Online Room", () => {
-      const roomCode = window.prompt("Enter room code")?.trim().toUpperCase() || "";
-      this.scene.start("MatchScene", { mode: "online-join", roomCode });
+      this.startJoinEntry();
+    });
+
+    this.joinPrompt = this.add.text(76, 492, "", {
+      fontFamily: "monospace",
+      fontSize: "20px",
+      color: "#ffffff",
+      stroke: "#07111f",
+      strokeThickness: 4
     });
 
     this.add.text(76, 556, "A/D move  W/SPACE jump  S fast-fall  J light  W+J up  K heavy  L special  SHIFT dodge  I shield", {
@@ -38,6 +48,8 @@ export class MenuScene extends Phaser.Scene {
       fontSize: "18px",
       color: "#f9f5d7"
     });
+
+    this.input.keyboard.on("keydown", this.handleJoinKey, this);
   }
 
   createButton(x, y, label, onClick) {
@@ -56,5 +68,41 @@ export class MenuScene extends Phaser.Scene {
     background.on("pointerout", () => background.setFillStyle(0x10253a, 0.92));
     background.on("pointerdown", onClick);
     return container;
+  }
+
+  startJoinEntry() {
+    this.joinMode = true;
+    this.joinCode = "";
+    this.updateJoinPrompt();
+  }
+
+  handleJoinKey(event) {
+    if (!this.joinMode) return;
+
+    if (event.key === "Escape") {
+      this.joinMode = false;
+      this.joinCode = "";
+      this.updateJoinPrompt();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      if (this.joinCode.length > 0) {
+        this.scene.start("MatchScene", { mode: "online-join", roomCode: this.joinCode });
+      }
+      return;
+    }
+
+    this.joinCode = updateRoomCodeEntry(this.joinCode, event.key);
+    this.updateJoinPrompt();
+  }
+
+  updateJoinPrompt() {
+    if (!this.joinMode) {
+      this.joinPrompt.setText("");
+      return;
+    }
+
+    this.joinPrompt.setText(`Room code: ${this.joinCode.padEnd(5, "_")}  Enter to join  Esc to cancel`);
   }
 }
