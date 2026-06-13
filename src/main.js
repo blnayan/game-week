@@ -1,22 +1,10 @@
 import Phaser from "phaser";
 import "./styles.css";
-
-class SmokeScene extends Phaser.Scene {
-  constructor() {
-    super("smoke");
-  }
-
-  create() {
-    this.cameras.main.setBackgroundColor("#101820");
-    this.add
-      .text(40, 40, "Pixel Arena Fighter", {
-        fontFamily: "monospace",
-        fontSize: "32px",
-        color: "#f8f8f2"
-      })
-      .setScrollFactor(0);
-  }
-}
+import { BootScene } from "./game/scenes/BootScene.js";
+import { HudScene } from "./game/scenes/HudScene.js";
+import { MatchScene } from "./game/scenes/MatchScene.js";
+import { MenuScene } from "./game/scenes/MenuScene.js";
+import { ResultsScene } from "./game/scenes/ResultsScene.js";
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -31,5 +19,5 @@ new Phaser.Game({
     width: 1280,
     height: 720
   },
-  scene: [SmokeScene]
+  scene: [BootScene, MenuScene, MatchScene, HudScene, ResultsScene]
 });
