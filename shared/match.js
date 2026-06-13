@@ -3,6 +3,7 @@ import { MATCH, PHYSICS, STAGE } from "./constants.js";
 import {
   FighterStates,
   applyInputState,
+  canControl,
   createFighter,
   enterHitstun,
   setFighterState,
@@ -71,12 +72,14 @@ export function stepMatch(match, dtMs) {
 }
 
 function tryStartAttack(fighter, input) {
-  if (fighter.attackCooldownMs > 0 || fighter.state === FighterStates.Hitstun || fighter.state === FighterStates.Respawn) {
+  const attackKey = input.light ? "light" : input.heavy ? "heavy" : input.up ? "up" : input.special ? "special" : null;
+  const attackPressed = attackKey !== null;
+  const freshAttackPress = attackPressed && !fighter.attackHeld;
+  fighter.attackHeld = attackPressed;
+
+  if (!freshAttackPress || fighter.attackCooldownMs > 0 || !canControl(fighter)) {
     return;
   }
-
-  const attackKey = input.light ? "light" : input.heavy ? "heavy" : input.up ? "up" : input.special ? "special" : null;
-  if (!attackKey) return;
 
   const attack = ATTACKS[attackKey];
   fighter.activeAttack = { key: attackKey, remainingMs: attack.activeMs, hasHit: false };
@@ -90,6 +93,11 @@ function resolveAttack(match, attackerId, defenderId) {
   if (!attacker.activeAttack || attacker.activeAttack.hasHit || defender.invulnerableMs > 0) return;
 
   const attack = ATTACKS[attacker.activeAttack.key];
+  if (!attack || attacker.state !== attack.state || attacker.stateTimerMs <= 0) {
+    attacker.activeAttack = null;
+    return;
+  }
+
   if (!rectsOverlap(getAttackRect(attacker, attack), getFighterRect(defender))) return;
 
   const scale = 1 + defender.damage / 100;
@@ -136,6 +144,7 @@ function handleBlastZone(match, fighterId) {
 
   fighter.stocks -= 1;
   fighter.stats.falls += 1;
+  fighter.activeAttack = null;
   const opponentId = fighterId === "p1" ? "p2" : "p1";
   match.fighters[opponentId].stats.kos += 1;
 

@@ -34,6 +34,7 @@ export function createFighter(id, x, y, facing = 1, palette = "blue") {
     onGround: true,
     jumpsRemaining: 2,
     jumpHeld: false,
+    attackHeld: false,
     damage: 0,
     stocks: MATCH.startingStocks,
     invulnerableMs: 0,
