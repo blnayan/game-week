@@ -22,6 +22,26 @@ export function assignPlayerId(players, socketId) {
   return existingSlots.has("p1") ? "p2" : "p1";
 }
 
+export function removeSocketFromRooms(rooms, socketId, exceptRoomCode = null) {
+  const removed = [];
+
+  for (const room of rooms.values()) {
+    if (room.code === exceptRoomCode || !room.players.has(socketId)) continue;
+
+    const playerId = room.players.get(socketId);
+    room.players.delete(socketId);
+    removed.push({
+      room,
+      code: room.code,
+      playerId,
+      players: room.players.size,
+      emptied: room.players.size === 0
+    });
+  }
+
+  return removed;
+}
+
 export function toPublicSnapshot(match) {
   return {
     status: match.status,

@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { FIXED_DT_MS } from "../shared/constants.js";
 import { createMatch, queueInput, stepMatch } from "../shared/match.js";
-import { assignPlayerId, createRoomCode, normalizeRoomCode, toPublicSnapshot } from "../shared/rooms.js";
+import {
+  assignPlayerId,
+  createRoomCode,
+  normalizeRoomCode,
+  removeSocketFromRooms,
+  toPublicSnapshot
+} from "../shared/rooms.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +37,7 @@ io.on("connection", (socket) => {
   socket.on("room:create", (_payload, ack) => {
     const code = createRoomCode(new Set(rooms.keys()));
     const room = createServerRoom(code);
+    releaseSocketFromGameRooms(socket);
     rooms.set(code, room);
     joinRoom(socket, room, ack);
   });
@@ -40,6 +47,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(normalized);
     if (!room) return ack?.({ ok: false, error: "Room not found" });
     if (room.players.size >= 2 && !room.players.has(socket.id)) return ack?.({ ok: false, error: "Room is full" });
+    releaseSocketFromGameRooms(socket, room.code);
     joinRoom(socket, room, ack);
   });
 
@@ -53,16 +61,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    for (const room of rooms.values()) {
-      if (!room.players.has(socket.id)) continue;
-      const playerId = room.players.get(socket.id);
-      room.players.delete(socket.id);
-      io.to(room.code).emit("room:status", { message: `${playerId} disconnected`, players: room.players.size });
-      if (room.players.size === 0) {
-        stopRoomInterval(room);
-        rooms.delete(room.code);
-      }
-    }
+    releaseSocketFromGameRooms(socket);
   });
 });
 
@@ -91,6 +90,18 @@ function joinRoom(socket, room, ack) {
   ack?.({ ok: true, roomCode: room.code, playerId });
   io.to(room.code).emit("room:status", { message: "Player joined", players: room.players.size, roomCode: room.code });
   socket.emit("match:snapshot", toPublicSnapshot(room.match));
+}
+
+function releaseSocketFromGameRooms(socket, exceptRoomCode = null) {
+  const removals = removeSocketFromRooms(rooms, socket.id, exceptRoomCode);
+  for (const removal of removals) {
+    io.to(removal.code).emit("room:status", { message: `${removal.playerId} disconnected`, players: removal.players });
+    socket.leave(removal.code);
+    if (removal.emptied) {
+      stopRoomInterval(removal.room);
+      rooms.delete(removal.code);
+    }
+  }
 }
 
 function stopRoomInterval(room) {

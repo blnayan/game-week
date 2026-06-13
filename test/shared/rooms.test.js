@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { assignPlayerId, createRoomCode, normalizeRoomCode, toPublicSnapshot } from "../../shared/rooms.js";
+import {
+  assignPlayerId,
+  createRoomCode,
+  normalizeRoomCode,
+  removeSocketFromRooms,
+  toPublicSnapshot
+} from "../../shared/rooms.js";
 
 describe("room helpers", () => {
   it("creates a five-character room code not already in use", () => {
@@ -54,5 +60,20 @@ describe("room helpers", () => {
   it("assigns the open player slot for new sockets", () => {
     expect(assignPlayerId(new Map(), "socket-a")).toBe("p1");
     expect(assignPlayerId(new Map([["socket-a", "p1"]]), "socket-b")).toBe("p2");
+  });
+
+  it("removes a socket from prior rooms while preserving the target room", () => {
+    const oldRoom = { code: "OLD01", players: new Map([["socket-a", "p1"]]) };
+    const targetRoom = { code: "NEW01", players: new Map([["socket-a", "p2"]]) };
+    const rooms = new Map([
+      [oldRoom.code, oldRoom],
+      [targetRoom.code, targetRoom]
+    ]);
+
+    expect(removeSocketFromRooms(rooms, "socket-a", targetRoom.code)).toEqual([
+      { room: oldRoom, code: oldRoom.code, playerId: "p1", players: 0, emptied: true }
+    ]);
+    expect(oldRoom.players.has("socket-a")).toBe(false);
+    expect(targetRoom.players.get("socket-a")).toBe("p2");
   });
 });
