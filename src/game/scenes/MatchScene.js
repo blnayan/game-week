@@ -5,6 +5,7 @@ import { createKeyboardInput } from "../input/inputMapper.js";
 import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
 import { createSocketClient } from "@game/net/socketClient.js";
 import { animationKey } from "../render/animationMap.js";
+import { EFFECT_RENDER_SCALE, FIGHTER_RENDER_SCALE } from "../render/renderScale.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -121,7 +122,7 @@ export class MatchScene extends Phaser.Scene {
   createFighterSprite(fighter) {
     const sprite = this.add.sprite(fighter.x, fighter.y, `fighter:${fighter.palette}`, 0);
     sprite.setOrigin(0.5, 1);
-    sprite.setScale(2);
+    sprite.setScale(FIGHTER_RENDER_SCALE);
     sprite.play(animationKey(fighter));
     return sprite;
   }
@@ -144,7 +145,7 @@ export class MatchScene extends Phaser.Scene {
   renderEffects() {
     for (const effect of this.match.effects) {
       const sprite = this.add.sprite(effect.x, effect.y, "effects", 0);
-      sprite.setScale(2);
+      sprite.setScale(EFFECT_RENDER_SCALE);
       sprite.play(`effect:${effect.type}`);
       sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sprite.destroy());
       this.effectSprites.push(sprite);
