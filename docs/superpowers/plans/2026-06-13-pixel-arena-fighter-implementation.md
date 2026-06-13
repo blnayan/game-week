@@ -68,7 +68,6 @@ Create `package.json`:
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@vitejs/plugin-basic-ssl": "^1.1.0",
     "express": "^4.19.2",
     "phaser": "^3.90.0",
     "socket.io": "^4.8.1",
