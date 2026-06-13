@@ -1,5 +1,6 @@
 const KEY = "pixel-arena-progress";
 const DEFAULT_PROGRESSION = { xp: 0, level: 1, palettes: ["blue", "orange"] };
+const VIOLET_UNLOCK_XP = 300;
 
 export function loadProgression() {
   const raw = window.localStorage.getItem(KEY);
@@ -26,9 +27,8 @@ function normalizeProgression(value = DEFAULT_PROGRESSION) {
   const saved = value && typeof value === "object" ? value : {};
   const savedXp = Number(saved.xp);
   const xp = Number.isFinite(savedXp) && savedXp > 0 ? Math.floor(savedXp) : 0;
-  const savedPalettes = Array.isArray(saved.palettes) ? saved.palettes.filter((palette) => typeof palette === "string") : [];
-  const palettes = [...new Set([...DEFAULT_PROGRESSION.palettes, ...savedPalettes])];
-  if (xp >= 300 && !palettes.includes("violet")) palettes.push("violet");
+  const palettes = [...DEFAULT_PROGRESSION.palettes];
+  if (xp >= VIOLET_UNLOCK_XP) palettes.push("violet");
 
   return {
     xp,

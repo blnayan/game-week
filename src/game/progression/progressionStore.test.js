@@ -38,4 +38,16 @@ describe("progression store", () => {
 
     expect(loadProgression()).toEqual({ xp: 300, level: 2, palettes: ["blue", "orange", "violet"] });
   });
+
+  it("drops saved violet when XP is below the unlock threshold", () => {
+    storage.set("pixel-arena-progress", JSON.stringify({ xp: 0, palettes: ["violet"] }));
+
+    expect(loadProgression()).toEqual({ xp: 0, level: 1, palettes: ["blue", "orange"] });
+  });
+
+  it("drops unknown saved palette names", () => {
+    storage.set("pixel-arena-progress", JSON.stringify({ xp: 300, palettes: ["blue", "debug", "violet"] }));
+
+    expect(loadProgression()).toEqual({ xp: 300, level: 2, palettes: ["blue", "orange", "violet"] });
+  });
 });
