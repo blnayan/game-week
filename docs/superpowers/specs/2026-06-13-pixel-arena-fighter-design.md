@@ -136,7 +136,41 @@ Effect animation states:
 
 Phaser frame animations and sprite sheets or atlases will drive character and effect playback. Camera shake, brief hit pause, and small particle bursts will be used sparingly to improve feel without obscuring gameplay.
 
+The client will map shared fighter state machine states to Phaser animation keys. Phaser should not be the source of truth for gameplay state; it should visualize the authoritative state coming from local CPU simulation or online server snapshots.
+
 ## Architecture
+
+### State Management
+
+Phaser Scenes will manage high-level application flow:
+
+- Boot.
+- Menu.
+- Match.
+- HUD.
+- Results.
+
+Fighter gameplay will use a small custom finite state machine in the shared simulation layer. Phaser's current state concept is Scenes, which are useful for game sections but are not the right place to own server-authoritative combat transitions.
+
+Shared fighter states:
+
+- Idle.
+- Run.
+- Jump.
+- Fall.
+- AttackLight.
+- AttackHeavy.
+- AttackUp.
+- Special.
+- Dodge.
+- Shield.
+- Hitstun.
+- Launched.
+- Respawn.
+- KO.
+- Victory.
+
+The state machine should be implemented with plain JavaScript objects and explicit transition functions. Avoid a heavy state-machine library for v1 unless combat rules become complex enough to justify the dependency.
 
 ### Client
 
@@ -157,6 +191,7 @@ Shared modules own:
 
 - Fighter state shape.
 - Input state shape.
+- Fighter finite state machine.
 - Stage bounds and blast zones.
 - Physics constants.
 - Attack definitions.
