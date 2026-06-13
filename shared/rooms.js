@@ -10,6 +10,18 @@ export function createRoomCode(existingCodes = new Set()) {
   throw new Error("Unable to allocate room code");
 }
 
+export function normalizeRoomCode(payload) {
+  return String(payload?.code || "").trim().toUpperCase();
+}
+
+export function assignPlayerId(players, socketId) {
+  const existingPlayerId = players.get(socketId);
+  if (existingPlayerId) return existingPlayerId;
+
+  const existingSlots = new Set(players.values());
+  return existingSlots.has("p1") ? "p2" : "p1";
+}
+
 export function toPublicSnapshot(match) {
   return {
     status: match.status,

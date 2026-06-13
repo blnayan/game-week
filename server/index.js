@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { FIXED_DT_MS } from "../shared/constants.js";
 import { createMatch, queueInput, stepMatch } from "../shared/match.js";
-import { createRoomCode, toPublicSnapshot } from "../shared/rooms.js";
+import { assignPlayerId, createRoomCode, normalizeRoomCode, toPublicSnapshot } from "../shared/rooms.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,18 +35,20 @@ io.on("connection", (socket) => {
     joinRoom(socket, room, ack);
   });
 
-  socket.on("room:join", ({ code }, ack) => {
-    const normalized = String(code || "").trim().toUpperCase();
+  socket.on("room:join", (payload, ack) => {
+    const normalized = normalizeRoomCode(payload);
     const room = rooms.get(normalized);
     if (!room) return ack?.({ ok: false, error: "Room not found" });
     if (room.players.size >= 2 && !room.players.has(socket.id)) return ack?.({ ok: false, error: "Room is full" });
     joinRoom(socket, room, ack);
   });
 
-  socket.on("match:input", ({ roomCode, input }) => {
-    const room = rooms.get(roomCode);
+  socket.on("match:input", (payload) => {
+    const safePayload = payload && typeof payload === "object" ? payload : {};
+    const room = rooms.get(normalizeRoomCode({ code: safePayload.roomCode }));
     const playerId = room?.players.get(socket.id);
     if (!room || !playerId) return;
+    const input = safePayload.input && typeof safePayload.input === "object" ? safePayload.input : {};
     queueInput(room.match, playerId, input);
   });
 
@@ -57,7 +59,7 @@ io.on("connection", (socket) => {
       room.players.delete(socket.id);
       io.to(room.code).emit("room:status", { message: `${playerId} disconnected`, players: room.players.size });
       if (room.players.size === 0) {
-        clearInterval(room.interval);
+        stopRoomInterval(room);
         rooms.delete(room.code);
       }
     }
@@ -75,18 +77,26 @@ function createServerRoom(code) {
     if (room.players.size < 2) return;
     stepMatch(room.match, FIXED_DT_MS);
     io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
+    if (room.match.status === "complete") {
+      stopRoomInterval(room);
+    }
   }, FIXED_DT_MS);
   return room;
 }
 
 function joinRoom(socket, room, ack) {
   socket.join(room.code);
-  const existingSlots = new Set(room.players.values());
-  const playerId = existingSlots.has("p1") ? "p2" : "p1";
+  const playerId = assignPlayerId(room.players, socket.id);
   room.players.set(socket.id, playerId);
   ack?.({ ok: true, roomCode: room.code, playerId });
   io.to(room.code).emit("room:status", { message: "Player joined", players: room.players.size, roomCode: room.code });
   socket.emit("match:snapshot", toPublicSnapshot(room.match));
+}
+
+function stopRoomInterval(room) {
+  if (!room.interval) return;
+  clearInterval(room.interval);
+  room.interval = null;
 }
 
 server.listen(port, () => {

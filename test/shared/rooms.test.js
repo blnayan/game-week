@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRoomCode, toPublicSnapshot } from "../../shared/rooms.js";
+import { assignPlayerId, createRoomCode, normalizeRoomCode, toPublicSnapshot } from "../../shared/rooms.js";
 
 describe("room helpers", () => {
   it("creates a five-character room code not already in use", () => {
@@ -34,5 +34,25 @@ describe("room helpers", () => {
       effects: match.effects,
       fighters: match.fighters
     });
+  });
+
+  it("normalizes malformed room code payloads without throwing", () => {
+    expect(normalizeRoomCode(null)).toBe("");
+    expect(normalizeRoomCode(undefined)).toBe("");
+    expect(normalizeRoomCode({ code: " ab234 " })).toBe("AB234");
+  });
+
+  it("preserves an existing socket player slot on repeated joins", () => {
+    const players = new Map([
+      ["socket-a", "p1"],
+      ["socket-b", "p2"]
+    ]);
+
+    expect(assignPlayerId(players, "socket-a")).toBe("p1");
+  });
+
+  it("assigns the open player slot for new sockets", () => {
+    expect(assignPlayerId(new Map(), "socket-a")).toBe("p1");
+    expect(assignPlayerId(new Map([["socket-a", "p1"]]), "socket-b")).toBe("p2");
   });
 });
