@@ -136,6 +136,17 @@ Effect animation states:
 
 Phaser frame animations and sprite sheets or atlases will drive character and effect playback. Camera shake, brief hit pause, and small particle bursts will be used sparingly to improve feel without obscuring gameplay.
 
+Assets should be pre-generated PNG files committed with the project, not runtime-created temporary textures. The visual target is original pixel art with chunky outlines, a limited pastel arcade palette, expressive small fighters, and a side-view city/beach arena. The reference direction is about pixel-art quality and readability, not copying any existing character, scene, or UI.
+
+Required pre-generated assets:
+
+- Fighter sprite sheets for the two v1 fighters and unlockable palette variants.
+- Effect sprite sheets for hit sparks, heavy impacts, jump puffs, shield shimmer, respawn burst, projectile trail, and KO streak.
+- Stage background and stage platform tile art.
+- UI portraits, stock icons, and compact menu/HUD panels.
+
+The repo may include a deterministic asset-generation script so assets can be regenerated, but Phaser should load PNG files from the project asset folder during gameplay.
+
 The client will map shared fighter state machine states to Phaser animation keys. Phaser should not be the source of truth for gameplay state; it should visualize the authoritative state coming from local CPU simulation or online server snapshots.
 
 ## Architecture
