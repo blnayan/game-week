@@ -1,0 +1,26 @@
+{
+  "name": "pixel-arena-fighter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite --host 0.0.0.0\" \"nodemon server/index.js\"",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@vitejs/plugin-basic-ssl": "^1.1.0",
+    "express": "^4.19.2",
+    "phaser": "^3.90.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "nodemon": "^3.1.10",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4"
+  }
+}
