@@ -1,0 +1,61 @@
+# Pixel Arena Fighter
+
+A fullscreen browser platform fighter built for Game Week. It uses Phaser for the 2D client, Node/Express for hosting, Socket.IO for online rooms, and a shared JavaScript combat simulation for CPU and online play.
+
+## Run Locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open the Vite URL shown in the terminal. The Socket.IO server runs on port 3000.
+
+## Production Build
+
+```bash
+npm run build
+npm start
+```
+
+Open `http://localhost:3000`.
+
+## Controls
+
+- `A` / `D`: move
+- `W` or `Space`: jump / double jump
+- `S`: fast fall
+- `J`: light attack
+- `W` + `J`: up attack
+- `K`: heavy attack
+- `L`: special
+- `Shift`: dodge
+- `I`: shield-lite
+
+## Modes
+
+- **CPU Battle**: starts a local match against a CPU opponent using the shared simulation.
+- **Create Online Room**: creates a Socket.IO room code for another browser to join.
+- **Join Online Room**: joins an existing room code.
+
+## Architecture
+
+The shared simulation in `shared/` owns fighter state, combat transitions, attacks, damage, knockback, stocks, CPU input, and match lifecycle. The client renders that state with Phaser. The server is authoritative for online rooms: clients send inputs and the server broadcasts match snapshots.
+
+Phaser Scenes manage app flow: boot, menu, match, HUD, and results. Fighter gameplay uses a custom finite state machine in `shared/fighterState.js`.
+
+## Multiplayer Design
+
+Socket.IO rooms map directly to match rooms. A room has two player slots, one match instance, and a fixed server tick. Disconnects notify the remaining player, and empty rooms are cleaned up.
+
+## CPU Design
+
+The CPU chooses compact input packets from match state. It approaches when far, attacks when close, uses special at medium range on higher difficulties, and jumps back toward the platform when recovering.
+
+## Pixel Art Asset Pipeline
+
+The pixel-art stage, fighter sheets, portraits, and effects are committed PNG assets under `public/assets/`. They are produced once and loaded by Phaser during boot. `npm run dev` and `npm run build` do not generate or modify art assets.
+
+## AI-Assisted Learning Notes
+
+The project followed a browser-game pathway from the Game Week brief. AI was used to compare Phaser and raw Canvas, design the network model, define a shared simulation boundary, and plan the state machine so CPU mode and online mode do not diverge.
