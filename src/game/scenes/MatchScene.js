@@ -3,6 +3,7 @@ import { chooseCpuInput } from "../../../shared/cpu.js";
 import { STAGE } from "../../../shared/constants.js";
 import { createMatch, queueInput, stepMatch } from "../../../shared/match.js";
 import { createKeyboardInput } from "../input/inputMapper.js";
+import { createSocketClient } from "@game/net/socketClient.js";
 import { animationKey } from "../render/animationMap.js";
 
 const WIDTH = 1280;
@@ -39,7 +40,13 @@ export class MatchScene extends Phaser.Scene {
 
     this.scene.launch("HudScene");
     this.hud = this.scene.get("HudScene");
+    if (this.mode !== "cpu") {
+      this.setupOnline(data);
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.unsubscribeSnapshot?.();
+      this.unsubscribeStatus?.();
+      this.net?.disconnect();
       this.scene.stop("HudScene");
     });
   }
@@ -47,8 +54,17 @@ export class MatchScene extends Phaser.Scene {
   update(_time, delta) {
     if (!this.match || this.resultStarted) return;
 
-    queueInput(this.match, "p1", this.readPlayerInput());
-    queueInput(this.match, "p2", this.mode === "cpu" ? chooseCpuInput(this.match, "p2", "normal") : {});
+    const input = this.readPlayerInput();
+
+    if (this.mode !== "cpu") {
+      if (this.roomCode && this.net) {
+        this.net.sendInput(this.roomCode, input);
+      }
+      return;
+    }
+
+    queueInput(this.match, "p1", input);
+    queueInput(this.match, "p2", chooseCpuInput(this.match, "p2", "normal"));
     stepMatch(this.match, Math.min(delta, 50));
 
     this.renderFighters();
@@ -65,6 +81,40 @@ export class MatchScene extends Phaser.Scene {
         });
       });
     }
+  }
+
+  async setupOnline(data) {
+    this.net = createSocketClient();
+    const response = this.mode === "online-create" ? await this.net.createRoom() : await this.net.joinRoom(data.roomCode);
+
+    if (!response?.ok) {
+      window.alert(response?.error || "Unable to join online room");
+      this.scene.start("MenuScene");
+      return;
+    }
+
+    this.roomCode = response.roomCode;
+    this.playerId = response.playerId;
+    this.unsubscribeStatus = this.net.onStatus((status) => {
+      this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode, status: status.message });
+    });
+    this.unsubscribeSnapshot = this.net.onSnapshot((snapshot) => {
+      this.match = snapshot;
+      this.renderFighters();
+      this.renderEffects();
+      this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode, status: `You are ${this.playerId}` });
+
+      if (snapshot.status === "complete" && !this.resultStarted) {
+        this.resultStarted = true;
+        this.net.disconnect();
+        this.scene.stop("HudScene");
+        this.scene.start("ResultsScene", {
+          winnerId: snapshot.winnerId,
+          snapshot,
+          xp: 120
+        });
+      }
+    });
   }
 
   createFighterSprite(fighter) {

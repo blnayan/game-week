@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { awardMatchXp } from "@game/progression/progressionStore.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -15,7 +16,8 @@ export class ResultsScene extends Phaser.Scene {
     const winner = data.winnerId === "p2" ? "P2 Wins" : "P1 Wins";
     const p1 = data.snapshot?.fighters?.p1;
     const p2 = data.snapshot?.fighters?.p2;
-    const xp = Math.max(25, Math.round((p1?.stats?.damageDealt || 0) + (p1?.stats?.kos || 0) * 50));
+    const xp = data.xp || 100;
+    const progress = awardMatchXp(xp);
 
     this.add.text(WIDTH / 2, 220, winner, {
       fontFamily: "monospace",
@@ -25,13 +27,19 @@ export class ResultsScene extends Phaser.Scene {
       strokeThickness: 8
     }).setOrigin(0.5);
 
-    this.add.text(WIDTH / 2, 316, `XP +${xp}`, {
+    this.add.text(WIDTH / 2, 316, `XP gained ${xp}`, {
       fontFamily: "monospace",
       fontSize: "30px",
       color: "#f9f5d7"
     }).setOrigin(0.5);
 
-    this.add.text(WIDTH / 2, 372, `P1 KOs ${p1?.stats?.kos || 0}  Falls ${p1?.stats?.falls || 0}    P2 KOs ${p2?.stats?.kos || 0}  Falls ${p2?.stats?.falls || 0}`, {
+    this.add.text(WIDTH / 2, 372, `Level ${progress.level}    Total XP ${progress.xp}`, {
+      fontFamily: "monospace",
+      fontSize: "26px",
+      color: "#d7ecff"
+    }).setOrigin(0.5);
+
+    this.add.text(WIDTH / 2, 426, `P1 KOs ${p1?.stats?.kos || 0}  Falls ${p1?.stats?.falls || 0}    P2 KOs ${p2?.stats?.kos || 0}  Falls ${p2?.stats?.falls || 0}`, {
       fontFamily: "monospace",
       fontSize: "20px",
       color: "#d7ecff"
