@@ -4,6 +4,7 @@ import {
   createFighter,
   applyInputState,
   enterHitstun,
+  setFighterState,
   tickFighterState
 } from "../../shared/fighterState.js";
 
@@ -37,5 +38,33 @@ describe("fighter state machine", () => {
     expect(fighter.state).toBe(FighterStates.Hitstun);
     tickFighterState(fighter, 120);
     expect(fighter.state).toBe(FighterStates.Fall);
+  });
+
+  it("respawn returns to idle when its timer expires on the ground", () => {
+    const fighter = createFighter("p1", 260, 420, 1);
+    setFighterState(fighter, FighterStates.Respawn, 120);
+    tickFighterState(fighter, 120);
+    expect(fighter.state).toBe(FighterStates.Idle);
+  });
+
+  it("timed action states block movement until their timer expires", () => {
+    const fighter = createFighter("p1", 260, 420, 1);
+    setFighterState(fighter, FighterStates.AttackLight, 80);
+    applyInputState(fighter, { left: false, right: true, jump: false, down: false });
+    expect(fighter.state).toBe(FighterStates.AttackLight);
+
+    tickFighterState(fighter, 80);
+    expect(fighter.state).toBe(FighterStates.Idle);
+  });
+
+  it("consumes jumps only on fresh jump presses", () => {
+    const fighter = createFighter("p1", 260, 420, 1);
+    applyInputState(fighter, { left: false, right: false, jump: true, down: false });
+    applyInputState(fighter, { left: false, right: false, jump: true, down: false });
+    expect(fighter.jumpsRemaining).toBe(1);
+
+    applyInputState(fighter, { left: false, right: false, jump: false, down: false });
+    applyInputState(fighter, { left: false, right: false, jump: true, down: false });
+    expect(fighter.jumpsRemaining).toBe(0);
   });
 });

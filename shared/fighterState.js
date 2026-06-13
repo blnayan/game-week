@@ -33,6 +33,7 @@ export function createFighter(id, x, y, facing = 1, palette = "blue") {
     stateTimerMs: 0,
     onGround: true,
     jumpsRemaining: 2,
+    jumpHeld: false,
     damage: 0,
     stocks: MATCH.startingStocks,
     invulnerableMs: 0,
@@ -42,7 +43,22 @@ export function createFighter(id, x, y, facing = 1, palette = "blue") {
   };
 }
 
+export function isTimedActionState(state) {
+  return [
+    FighterStates.AttackLight,
+    FighterStates.AttackHeavy,
+    FighterStates.AttackUp,
+    FighterStates.Special,
+    FighterStates.Dodge,
+    FighterStates.Shield
+  ].includes(state);
+}
+
 export function canControl(fighter) {
+  if (isTimedActionState(fighter.state) && fighter.stateTimerMs > 0) {
+    return false;
+  }
+
   return ![
     FighterStates.Hitstun,
     FighterStates.Launched,
@@ -58,6 +74,10 @@ export function setFighterState(fighter, state, durationMs = 0) {
 }
 
 export function applyInputState(fighter, input) {
+  const jumpPressed = Boolean(input.jump);
+  const freshJumpPress = jumpPressed && !fighter.jumpHeld;
+  fighter.jumpHeld = jumpPressed;
+
   if (!canControl(fighter)) return;
 
   const horizontal = Number(Boolean(input.right)) - Number(Boolean(input.left));
@@ -71,7 +91,7 @@ export function applyInputState(fighter, input) {
     setFighterState(fighter, FighterStates.Idle);
   }
 
-  if (input.jump && fighter.jumpsRemaining > 0) {
+  if (freshJumpPress && fighter.jumpsRemaining > 0) {
     fighter.velocity.y = PHYSICS.jumpVelocity;
     fighter.onGround = false;
     fighter.jumpsRemaining -= 1;
@@ -95,7 +115,17 @@ export function tickFighterState(fighter, dtMs) {
   if (fighter.invulnerableMs > 0) fighter.invulnerableMs = Math.max(0, fighter.invulnerableMs - dtMs);
   if (fighter.stateTimerMs > 0) fighter.stateTimerMs = Math.max(0, fighter.stateTimerMs - dtMs);
 
-  if (fighter.state === FighterStates.Hitstun && fighter.stateTimerMs === 0) {
+  if (
+    [
+      FighterStates.Hitstun,
+      FighterStates.Respawn
+    ].includes(fighter.state) &&
+    fighter.stateTimerMs === 0
+  ) {
+    setFighterState(fighter, fighter.onGround ? FighterStates.Idle : FighterStates.Fall);
+  }
+
+  if (isTimedActionState(fighter.state) && fighter.stateTimerMs === 0) {
     setFighterState(fighter, fighter.onGround ? FighterStates.Idle : FighterStates.Fall);
   }
 
