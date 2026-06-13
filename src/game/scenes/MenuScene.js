@@ -31,7 +31,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start("MatchScene", { mode: "online-create" });
     });
 
-    this.createButton(82, 378, "Join Online Room", () => {
+    this.createButton(82, 378, "Join Online Room (R)", () => {
       this.startJoinEntry();
     });
 
@@ -50,6 +50,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on("keydown", this.handleJoinKey, this);
+    this.input.on("pointerdown", this.handleJoinPointerFallback, this);
   }
 
   createButton(x, y, label, onClick) {
@@ -63,10 +64,15 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0, 0.5);
 
     container.add([background, text]);
+    const hitArea = new Phaser.Geom.Rectangle(0, -27, 360, 54);
+    container.setSize(360, 54).setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
     background.setInteractive({ useHandCursor: true });
-    background.on("pointerover", () => background.setFillStyle(0x1a4968, 0.96));
-    background.on("pointerout", () => background.setFillStyle(0x10253a, 0.92));
-    background.on("pointerdown", onClick);
+    text.setInteractive({ useHandCursor: true });
+    for (const target of [container, background, text]) {
+      target.on("pointerover", () => background.setFillStyle(0x1a4968, 0.96));
+      target.on("pointerout", () => background.setFillStyle(0x10253a, 0.92));
+      target.on("pointerdown", onClick);
+    }
     return container;
   }
 
@@ -76,8 +82,19 @@ export class MenuScene extends Phaser.Scene {
     this.updateJoinPrompt();
   }
 
+  handleJoinPointerFallback(pointer) {
+    const inGameBounds = pointer.x >= 82 && pointer.x <= 442 && pointer.y >= 351 && pointer.y <= 405;
+    const inViewportBounds = pointer.x >= 54 && pointer.x <= 296 && pointer.y >= 234 && pointer.y <= 270;
+    if (inGameBounds || inViewportBounds) {
+      this.startJoinEntry();
+    }
+  }
+
   handleJoinKey(event) {
-    if (!this.joinMode) return;
+    if (!this.joinMode) {
+      if (event.key.toUpperCase() === "R") this.startJoinEntry();
+      return;
+    }
 
     if (event.key === "Escape") {
       this.joinMode = false;
