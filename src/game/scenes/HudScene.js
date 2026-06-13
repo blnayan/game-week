@@ -24,7 +24,7 @@ export class HudScene extends Phaser.Scene {
     this.centerText.setText(`${formatMode(meta.mode)}${room}`);
 
     const fps = Math.round(this.game.loop.actualFps || 0);
-    this.debugText.setText(`FPS ${fps}  ${snapshot.status}`);
+    this.debugText.setText(`FPS ${fps}  ${meta.status || snapshot.status}`);
   }
 
   addHudText(x, y, color) {
