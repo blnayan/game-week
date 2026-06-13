@@ -18,13 +18,16 @@ export function createKeyboardInput(scene) {
   const justDown = Phaser.Input.Keyboard.JustDown;
 
   return function readKeyboardInput() {
+    const lightPressed = justDown(keys.light);
+    const upAttack = keys.up.isDown && lightPressed;
+
     return {
       left: keys.left.isDown,
       right: keys.right.isDown,
-      up: keys.up.isDown,
+      up: upAttack,
       down: keys.down.isDown,
-      jump: justDown(keys.jump),
-      light: justDown(keys.light),
+      jump: justDown(keys.up) || justDown(keys.jump),
+      light: lightPressed && !upAttack,
       heavy: justDown(keys.heavy),
       special: justDown(keys.special),
       dodge: justDown(keys.dodge),

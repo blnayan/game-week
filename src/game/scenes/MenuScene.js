@@ -33,7 +33,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start("MatchScene", { mode: "online-join", roomCode });
     });
 
-    this.add.text(76, 556, "A/D move  W up  S fast-fall  SPACE jump  J/K/L attack  SHIFT dodge  I shield", {
+    this.add.text(76, 556, "A/D move  W/SPACE jump  S fast-fall  J light  W+J up  K heavy  L special  SHIFT dodge  I shield", {
       fontFamily: "monospace",
       fontSize: "18px",
       color: "#f9f5d7"
