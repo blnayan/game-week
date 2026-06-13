@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { STAGE } from "../../shared/constants.js";
 import { FighterStates } from "../../shared/fighterState.js";
 import { createMatch, queueInput, stepMatch } from "../../shared/match.js";
 
@@ -61,7 +62,7 @@ describe("match simulation", () => {
   it("does not restart a held light attack after cooldown until released and pressed again", () => {
     const match = createMatch("cpu");
     match.fighters.p1.x = 500;
-    match.fighters.p1.y = 520;
+    match.fighters.p1.y = STAGE.platform.y;
     match.fighters.p2.x = 900;
     queueInput(match, "p1", { light: true });
 
