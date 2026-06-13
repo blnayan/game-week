@@ -15,7 +15,7 @@ export class MenuScene extends Phaser.Scene {
     this.playerPalette = selectPlayerPalette(progress);
     this.joinCode = "";
     this.joinMode = false;
-    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:city-beach").setDisplaySize(WIDTH, HEIGHT);
+    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:cosmic-floating").setDisplaySize(WIDTH, HEIGHT);
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x06111f, 0.52);
 
     this.add.text(72, 62, "Pixel Arena Fighter", {

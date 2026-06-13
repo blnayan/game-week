@@ -42,7 +42,7 @@ export function loadGameAssets(scene) {
     frameWidth: 48,
     frameHeight: 48
   });
-  scene.load.image("stage:city-beach", "/assets/stage/city-beach.png");
+  scene.load.image("stage:cosmic-floating", "/assets/stage/cosmic-floating-arena.png");
   scene.load.spritesheet("ui:portraits", "/assets/ui/portraits.png", {
     frameWidth: 64,
     frameHeight: 64

@@ -10,7 +10,7 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   create(data = {}) {
-    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:city-beach").setDisplaySize(WIDTH, HEIGHT);
+    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:cosmic-floating").setDisplaySize(WIDTH, HEIGHT);
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x05070a, 0.72);
 
     const winner = data.winnerId === "p2" ? "P2 Wins" : "P1 Wins";

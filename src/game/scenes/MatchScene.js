@@ -26,7 +26,7 @@ export class MatchScene extends Phaser.Scene {
     this.effectSprites = [];
     this.resultStarted = false;
 
-    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:city-beach").setDisplaySize(WIDTH, HEIGHT);
+    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:cosmic-floating").setDisplaySize(WIDTH, HEIGHT);
 
     this.fighterSprites = {
       p1: this.createFighterSprite(this.match.fighters.p1),

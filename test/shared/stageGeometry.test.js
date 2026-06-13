@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { GAME_WIDTH, STAGE } from "../../shared/constants.js";
+import { STAGE } from "../../shared/constants.js";
 
 describe("stage collision geometry", () => {
-  it("aligns the main platform with the full-width visible arena ledge", () => {
+  it("aligns the main platform with the visible short arena ledge", () => {
     expect(STAGE.platform).toMatchObject({
-      x: 0,
+      x: 180,
       y: 520,
-      width: GAME_WIDTH
+      width: 920
     });
     expect(STAGE.platform.height).toBeGreaterThanOrEqual(32);
   });
