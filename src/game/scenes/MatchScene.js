@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import { chooseCpuInput } from "../../../shared/cpu.js";
-import { STAGE } from "../../../shared/constants.js";
 import { createMatch, queueInput, stepMatch } from "../../../shared/match.js";
 import { createKeyboardInput } from "../input/inputMapper.js";
 import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
@@ -28,15 +27,6 @@ export class MatchScene extends Phaser.Scene {
     this.resultStarted = false;
 
     this.add.image(WIDTH / 2, HEIGHT / 2, "stage:city-beach").setDisplaySize(WIDTH, HEIGHT);
-    this.platform = this.add.rectangle(
-      STAGE.platform.x + STAGE.platform.width / 2,
-      STAGE.platform.y + STAGE.platform.height / 2,
-      STAGE.platform.width,
-      STAGE.platform.height,
-      0x16283a,
-      0.68
-    );
-    this.platform.setStrokeStyle(2, 0x8ce7ff, 0.55);
 
     this.fighterSprites = {
       p1: this.createFighterSprite(this.match.fighters.p1),

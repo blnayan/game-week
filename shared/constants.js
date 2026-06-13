@@ -4,7 +4,7 @@ export const TICK_RATE = 60;
 export const FIXED_DT_MS = 1000 / TICK_RATE;
 
 export const STAGE = {
-  platform: { x: 180, y: 520, width: 920, height: 28 },
+  platform: { x: 0, y: 520, width: GAME_WIDTH, height: 36 },
   blastZone: { left: -180, right: 1460, top: -260, bottom: 940 },
   spawnA: { x: 360, y: 430, facing: 1 },
   spawnB: { x: 920, y: 430, facing: -1 }
