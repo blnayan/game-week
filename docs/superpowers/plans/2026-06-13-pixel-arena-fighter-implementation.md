@@ -16,8 +16,7 @@
 - `index.html`: fullscreen browser mount point.
 - `vite.config.js`: Vite config that aliases shared modules and proxies Socket.IO during dev.
 - `server/index.js`: Express static server plus Socket.IO room lifecycle and online match loop.
-- `scripts/generate-pixel-assets.js`: deterministic pre-generation script for original pixel-art PNG assets.
-- `public/assets/`: committed PNG sprite sheets, stage art, UI portraits, and generated asset manifest.
+- `public/assets/`: committed PNG sprite sheets, stage art, UI portraits, and asset manifest inputs produced once during the asset task.
 - `src/main.js`: Phaser game boot.
 - `src/styles.css`: fullscreen page and overlay styling.
 - `src/game/scenes/BootScene.js`: load pre-generated PNG assets and boot into menu.
@@ -62,9 +61,8 @@ Create `package.json`:
   "private": true,
   "type": "module",
   "scripts": {
-    "assets": "node scripts/generate-pixel-assets.js",
-    "dev": "npm run assets && concurrently \"vite --host 0.0.0.0\" \"nodemon server/index.js\"",
-    "build": "npm run assets && vite build",
+    "dev": "concurrently \"vite --host 0.0.0.0\" \"nodemon server/index.js\"",
+    "build": "vite build",
     "start": "node server/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -79,7 +77,6 @@ Create `package.json`:
   "devDependencies": {
     "concurrently": "^9.1.2",
     "nodemon": "^3.1.10",
-    "pngjs": "^7.0.0",
     "vite": "^6.3.5",
     "vitest": "^3.2.4"
   }
@@ -1023,7 +1020,6 @@ git commit -m "feat: add Socket.IO match rooms"
 
 **Files:**
 - Replace: `src/main.js`
-- Create: `scripts/generate-pixel-assets.js`
 - Create: `public/assets/fighters/blue.png`
 - Create: `public/assets/fighters/orange.png`
 - Create: `public/assets/fighters/violet.png`
@@ -1039,199 +1035,51 @@ git commit -m "feat: add Socket.IO match rooms"
 - Create: `src/game/render/animationMap.js`
 - Create: `src/game/input/inputMapper.js`
 
-- [ ] **Step 1: Add deterministic asset generator**
+- [ ] **Step 1: Produce the final pixel-art asset set once**
 
-Create `scripts/generate-pixel-assets.js`. The generator creates committed PNG assets with a hand-authored pixel-art look: black outlines, pastel sky, city/beach arena, compact fighters, and readable hit effects.
+Use the built-in image generation workflow, manual cleanup, or a pixel-art editor to produce the final project assets one time. Do not create a script that runs during `npm run dev` or `npm run build`. The final PNGs are committed and treated as source assets.
 
-```js
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { PNG } from "pngjs";
+Use this art direction for every generated asset:
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const outDir = path.resolve(__dirname, "../public/assets");
-
-const palettes = {
-  blue: { body: "#39a9db", dark: "#114b5f", accent: "#f7d65a", skin: "#ffd7a8" },
-  orange: { body: "#e87534", dark: "#6f2d1d", accent: "#5bd38b", skin: "#f7bf8f" },
-  violet: { body: "#9b7ff0", dark: "#44296f", accent: "#f06fae", skin: "#ffd1bd" }
-};
-
-ensureDir("fighters");
-ensureDir("effects");
-ensureDir("stage");
-ensureDir("ui");
-
-for (const [name, palette] of Object.entries(palettes)) {
-  writePng(`fighters/${name}.png`, drawFighterSheet(palette));
-}
-writePng("effects/effects.png", drawEffectsSheet());
-writePng("stage/city-beach.png", drawStageBackground());
-writePng("ui/portraits.png", drawPortraits());
-
-function ensureDir(relative) {
-  fs.mkdirSync(path.join(outDir, relative), { recursive: true });
-}
-
-function writePng(relative, png) {
-  fs.writeFileSync(path.join(outDir, relative), PNG.sync.write(png));
-}
-
-function png(width, height, fillColor = "#00000000") {
-  const image = new PNG({ width, height });
-  fill(image, fillColor);
-  return image;
-}
-
-function fill(image, color) {
-  rect(image, 0, 0, image.width, image.height, color);
-}
-
-function rect(image, x, y, width, height, color) {
-  const rgba = parseColor(color);
-  for (let py = Math.max(0, y); py < Math.min(image.height, y + height); py += 1) {
-    for (let px = Math.max(0, x); px < Math.min(image.width, x + width); px += 1) {
-      setPixel(image, px, py, rgba);
-    }
-  }
-}
-
-function outlineRect(image, x, y, width, height, fillColor, outlineColor = "#1b1b1b") {
-  rect(image, x - 1, y - 1, width + 2, height + 2, outlineColor);
-  rect(image, x, y, width, height, fillColor);
-}
-
-function setPixel(image, x, y, rgba) {
-  const idx = (image.width * y + x) << 2;
-  image.data[idx] = rgba[0];
-  image.data[idx + 1] = rgba[1];
-  image.data[idx + 2] = rgba[2];
-  image.data[idx + 3] = rgba[3];
-}
-
-function parseColor(hex) {
-  const clean = hex.replace("#", "");
-  const value = clean.length === 8 ? clean : `${clean}ff`;
-  return [
-    Number.parseInt(value.slice(0, 2), 16),
-    Number.parseInt(value.slice(2, 4), 16),
-    Number.parseInt(value.slice(4, 6), 16),
-    Number.parseInt(value.slice(6, 8), 16)
-  ];
-}
-
-function drawFighterSheet(palette) {
-  const frameWidth = 64;
-  const frameHeight = 80;
-  const frames = 38;
-  const image = png(frameWidth * frames, frameHeight, "#00000000");
-  for (let frame = 0; frame < frames; frame += 1) {
-    drawFighterFrame(image, frame * frameWidth, frame, palette);
-  }
-  return image;
-}
-
-function drawFighterFrame(image, ox, frame, palette) {
-  const bob = [1, 3, 5, 15, 16, 17, 35, 36, 37].includes(frame) ? 2 : 0;
-  const attacking = frame >= 8 && frame <= 21;
-  const hurt = frame >= 26 && frame <= 29;
-  const victory = frame >= 35;
-  outlineRect(image, ox + 24, 8 + bob, 17, 15, palette.skin);
-  rect(image, ox + 28, 13 + bob, 3, 3, "#1b1b1b");
-  rect(image, ox + 37, 13 + bob, 2, 3, "#1b1b1b");
-  outlineRect(image, ox + 21, 24 + bob, 24, 27, palette.body);
-  outlineRect(image, ox + 23, 51 + bob, 8, 19, palette.dark);
-  outlineRect(image, ox + 36, 51 + bob, 8, 19, palette.dark);
-  outlineRect(image, ox + 17, 31 + bob, 8, 12, palette.accent);
-  outlineRect(image, ox + 42, 31 + bob, 8, 12, palette.accent);
-  if (attacking) {
-    outlineRect(image, ox + 45, 30 + bob, 14 + (frame % 4) * 3, 8, "#fff2a8");
-  }
-  if (hurt) {
-    rect(image, ox + 18, 10, 6, 6, "#ffffff");
-    rect(image, ox + 44, 8, 5, 5, "#ffffff");
-  }
-  if (victory) {
-    outlineRect(image, ox + 31, 4, 7, 20, palette.accent);
-  }
-}
-
-function drawEffectsSheet() {
-  const frameSize = 48;
-  const rows = 7;
-  const cols = 4;
-  const image = png(frameSize * cols, frameSize * rows, "#00000000");
-  const colors = ["#fff4a3", "#ff6b6b", "#ffffff", "#8be9fd", "#c4f1be", "#f8a5ff", "#facc15"];
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const ox = col * frameSize;
-      const oy = row * frameSize;
-      const spread = 5 + col * 5;
-      rect(image, ox + 23 - spread, oy + 22, spread * 2, 4, colors[row]);
-      rect(image, ox + 22, oy + 23 - spread, 4, spread * 2, "#ffffff");
-      rect(image, ox + 17 - col, oy + 17 - col, 5, 5, "#1b1b1b");
-      rect(image, ox + 30 + col, oy + 29 + col, 4, 4, "#1b1b1b");
-    }
-  }
-  return image;
-}
-
-function drawStageBackground() {
-  const image = png(1280, 720, "#b8dee4");
-  rect(image, 0, 520, 1280, 200, "#b7b7b7");
-  rect(image, 0, 548, 1280, 5, "#1b1b1b");
-  drawCloud(image, 170, 108);
-  drawCloud(image, 850, 86);
-  drawBuilding(image, 770, 120, 150, 410, "#9fc9ce");
-  drawBuilding(image, 970, 20, 180, 510, "#f0a55f");
-  drawPalm(image, 245, 360);
-  outlineRect(image, 180, 500, 920, 28, "#7f8f99");
-  rect(image, 180, 528, 920, 8, "#1b1b1b");
-  return image;
-}
-
-function drawCloud(image, x, y) {
-  rect(image, x, y + 24, 170, 34, "#f4f0e8");
-  rect(image, x + 35, y, 60, 56, "#f4f0e8");
-  rect(image, x + 90, y + 10, 72, 46, "#f4f0e8");
-}
-
-function drawBuilding(image, x, y, width, height, color) {
-  outlineRect(image, x, y, width, height, color);
-  for (let wy = y + 24; wy < y + height - 40; wy += 48) {
-    for (let wx = x + 18; wx < x + width - 30; wx += 42) {
-      outlineRect(image, wx, wy, 18, 28, "#dff6ff");
-    }
-  }
-}
-
-function drawPalm(image, x, y) {
-  outlineRect(image, x, y - 112, 22, 112, "#c78b54");
-  for (let i = 0; i < 5; i += 1) {
-    rect(image, x - 74 + i * 34, y - 132 - Math.abs(2 - i) * 13, 82, 18, "#6fc17b");
-  }
-}
-
-function drawPortraits() {
-  const image = png(192, 64, "#00000000");
-  const entries = Object.values(palettes);
-  entries.forEach((palette, index) => {
-    const ox = index * 64;
-    outlineRect(image, ox + 4, 4, 56, 56, "#e8e0c8");
-    outlineRect(image, ox + 22, 14, 20, 18, palette.skin);
-    outlineRect(image, ox + 18, 34, 28, 18, palette.body);
-  });
-  return image;
-}
+```text
+Use case: stylized-concept
+Asset type: browser game pixel-art production asset
+Primary request: original polished pixel-art assets for a fullscreen platform fighting game
+Input images: the provided screenshot is style reference only, not content to copy
+Style/medium: crisp 2D pixel art, chunky dark outlines, limited pastel arcade palette, expressive small characters, clean readable silhouettes
+Composition/framing: side-view game camera, readable at gameplay scale, no blur, no anti-aliased painterly edges
+Constraints: original characters and environment, no copied characters, no copied UI, no text baked into gameplay sprites, no watermark
+Avoid: photorealism, smooth vector art, soft airbrush shading, noisy dithering, copyrighted characters
 ```
 
-- [ ] **Step 2: Run asset generation**
+Required final files and dimensions:
 
-Run: `npm run assets`
+- `public/assets/fighters/blue.png`: 38 frames, `64x80` each, total `2432x80`, transparent background.
+- `public/assets/fighters/orange.png`: 38 frames, `64x80` each, total `2432x80`, transparent background.
+- `public/assets/fighters/violet.png`: palette variant or unlockable fighter sheet, 38 frames, `64x80` each, total `2432x80`, transparent background.
+- `public/assets/effects/effects.png`: 7 rows x 4 frames, `48x48` each, total `192x336`, transparent background.
+- `public/assets/stage/city-beach.png`: fullscreen stage background, `1280x720`, original side-view city/beach arena with main platform readable at y=520.
+- `public/assets/ui/portraits.png`: 3 portraits, `64x64` each, total `192x64`, transparent background.
 
-Expected: PNG files are created under `public/assets/`.
+Frame order for each fighter sheet:
+
+```text
+0-2 idle, 3-5 run, 6 jump, 7 fall, 8-10 light, 11-14 heavy, 15-17 up, 18-21 special, 22-23 dodge, 24-25 shield, 26-27 hurt, 28-29 launched, 30-32 respawn, 33-34 ko, 35-37 victory
+```
+
+If image generation produces strong art but imperfect sheet alignment, clean and arrange the final frames manually before committing. The committed PNG dimensions and frame order are the contract that Phaser depends on.
+
+- [ ] **Step 2: Verify committed asset files**
+
+Check that every required asset exists at the exact project path before writing the Phaser loader.
+
+Run:
+
+```bash
+ls public/assets/fighters/blue.png public/assets/fighters/orange.png public/assets/fighters/violet.png public/assets/effects/effects.png public/assets/stage/city-beach.png public/assets/ui/portraits.png
+```
+
+Expected: all six files print with no `No such file or directory` errors.
 
 - [ ] **Step 3: Add input mapper**
 
@@ -1573,10 +1421,6 @@ new Phaser.Game({
 
 - [ ] **Step 7: Verify assets and client build**
 
-Run: `npm run assets`
-
-Expected: all required PNG files exist under `public/assets/`.
-
 Run: `npm run build`
 
 Expected: PASS and production output includes referenced assets.
@@ -1584,412 +1428,9 @@ Expected: PASS and production output includes referenced assets.
 - [ ] **Step 8: Commit Phaser client and assets**
 
 ```bash
-git add scripts/generate-pixel-assets.js public/assets src/main.js src/game
+git add public/assets src/main.js src/game
 git commit -m "feat: add pre-generated pixel art client assets"
 ```
-
-<!-- Deprecated runtime texture draft retained for history. Do not execute.
-
-## Task 6: Phaser Scenes, Input, and Generated Pixel Assets
-
-**Files:**
-- Replace: `src/main.js`
-- Create: `src/game/scenes/BootScene.js`
-- Create: `src/game/scenes/MenuScene.js`
-- Create: `src/game/scenes/MatchScene.js`
-- Create: `src/game/scenes/HudScene.js`
-- Create: `src/game/scenes/ResultsScene.js`
-- Create: `src/game/render/assetFactory.js`
-- Create: `src/game/render/animationMap.js`
-- Create: `src/game/input/inputMapper.js`
-
-- [ ] **Step 1: Add input mapper**
-
-Create `src/game/input/inputMapper.js`:
-
-```js
-import Phaser from "phaser";
-
-export function createKeyboardInput(scene) {
-  const keys = scene.input.keyboard.addKeys({
-    left: "A",
-    right: "D",
-    up: "W",
-    down: "S",
-    jump: "SPACE",
-    light: "J",
-    heavy: "K",
-    special: "L",
-    dodge: "SHIFT",
-    shield: "I"
-  });
-
-  return function readInput() {
-    return {
-      left: keys.left.isDown,
-      right: keys.right.isDown,
-      up: keys.up.isDown,
-      down: keys.down.isDown,
-      jump: Phaser.Input.Keyboard.JustDown(keys.jump),
-      light: Phaser.Input.Keyboard.JustDown(keys.light),
-      heavy: Phaser.Input.Keyboard.JustDown(keys.heavy),
-      special: Phaser.Input.Keyboard.JustDown(keys.special),
-      dodge: Phaser.Input.Keyboard.JustDown(keys.dodge),
-      shield: keys.shield.isDown
-    };
-  };
-}
-```
-
-- [ ] **Step 2: Add animation map**
-
-Create `src/game/render/animationMap.js`:
-
-```js
-import { FighterStates } from "@shared/fighterState.js";
-
-export const STATE_TO_ANIMATION = {
-  [FighterStates.Idle]: "idle",
-  [FighterStates.Run]: "run",
-  [FighterStates.Jump]: "jump",
-  [FighterStates.Fall]: "fall",
-  [FighterStates.AttackLight]: "light",
-  [FighterStates.AttackHeavy]: "heavy",
-  [FighterStates.AttackUp]: "up",
-  [FighterStates.Special]: "special",
-  [FighterStates.Dodge]: "dodge",
-  [FighterStates.Shield]: "shield",
-  [FighterStates.Hitstun]: "hurt",
-  [FighterStates.Launched]: "launched",
-  [FighterStates.Respawn]: "respawn",
-  [FighterStates.KO]: "ko",
-  [FighterStates.Victory]: "victory"
-};
-
-export function animationKey(fighter) {
-  return `${fighter.palette}:${STATE_TO_ANIMATION[fighter.state] || "idle"}`;
-}
-```
-
-- [ ] **Step 3: Generate pixel textures and animations**
-
-Create `src/game/render/assetFactory.js`:
-
-```js
-const PALETTES = {
-  blue: { body: 0x38bdf8, dark: 0x075985, accent: 0xfacc15 },
-  orange: { body: 0xfb923c, dark: 0x7c2d12, accent: 0x22c55e },
-  violet: { body: 0xa78bfa, dark: 0x4c1d95, accent: 0xf472b6 }
-};
-
-const ANIMS = {
-  idle: [0, 1, 0, 2],
-  run: [3, 4, 5, 4],
-  jump: [6],
-  fall: [7],
-  light: [8, 9, 10],
-  heavy: [11, 12, 13, 14],
-  up: [15, 16, 17],
-  special: [18, 19, 20, 21],
-  dodge: [22, 23],
-  shield: [24, 25],
-  hurt: [26, 27],
-  launched: [28, 29],
-  respawn: [30, 31, 32],
-  ko: [33, 34],
-  victory: [35, 36, 37, 36]
-};
-
-export function createGeneratedAssets(scene) {
-  for (const [name, palette] of Object.entries(PALETTES)) {
-    createFighterSheet(scene, name, palette);
-    for (const [anim, frames] of Object.entries(ANIMS)) {
-      scene.anims.create({
-        key: `${name}:${anim}`,
-        frames: scene.anims.generateFrameNumbers(`${name}-fighter`, { frames }),
-        frameRate: anim === "idle" ? 5 : 12,
-        repeat: ["idle", "run", "victory", "shield"].includes(anim) ? -1 : 0
-      });
-    }
-  }
-
-  createEffectTexture(scene, "hitSpark", [0xfef08a, 0xfb7185, 0xffffff]);
-  createEffectTexture(scene, "heavyImpact", [0xffffff, 0xf97316, 0xef4444]);
-  createEffectTexture(scene, "jumpPuff", [0xe2e8f0, 0x94a3b8, 0xffffff]);
-  createEffectTexture(scene, "koStreak", [0xf8fafc, 0x38bdf8, 0xf43f5e]);
-}
-
-function createFighterSheet(scene, key, palette) {
-  const frameWidth = 64;
-  const frameHeight = 80;
-  const frames = 38;
-  const texture = scene.textures.createCanvas(`${key}-fighter`, frameWidth * frames, frameHeight);
-  const ctx = texture.getContext();
-  ctx.imageSmoothingEnabled = false;
-
-  for (let i = 0; i < frames; i += 1) {
-    const x = i * frameWidth;
-    const bob = i % 2 === 0 ? 0 : 2;
-    ctx.fillStyle = color(palette.dark);
-    ctx.fillRect(x + 23, 8 + bob, 18, 14);
-    ctx.fillStyle = color(palette.body);
-    ctx.fillRect(x + 20, 24 + bob, 24, 30);
-    ctx.fillStyle = color(palette.accent);
-    ctx.fillRect(x + 17, 32 + bob, 8 + (i % 4), 10);
-    ctx.fillRect(x + 39 - (i % 3), 32 + bob, 8, 10);
-    ctx.fillStyle = color(palette.dark);
-    ctx.fillRect(x + 22, 54 + bob, 8, 18);
-    ctx.fillRect(x + 35, 54 + bob, 8, 18);
-    if (i >= 8 && i <= 21) {
-      ctx.fillStyle = "#fff7ad";
-      ctx.fillRect(x + 44, 28, 14 + (i % 4) * 4, 8);
-    }
-    texture.add(i, 0, x, 0, frameWidth, frameHeight);
-  }
-
-  texture.refresh();
-}
-
-function createEffectTexture(scene, key, colors) {
-  const size = 48;
-  const texture = scene.textures.createCanvas(key, size * 4, size);
-  const ctx = texture.getContext();
-  ctx.imageSmoothingEnabled = false;
-  for (let frame = 0; frame < 4; frame += 1) {
-    const x = frame * size;
-    ctx.fillStyle = color(colors[frame % colors.length]);
-    ctx.fillRect(x + 20 - frame * 4, 22, 8 + frame * 8, 4);
-    ctx.fillRect(x + 22, 20 - frame * 4, 4, 8 + frame * 8);
-    texture.add(frame, 0, x, 0, size, size);
-  }
-  texture.refresh();
-  scene.anims.create({
-    key,
-    frames: scene.anims.generateFrameNumbers(key, { start: 0, end: 3 }),
-    frameRate: 16,
-    repeat: 0
-  });
-}
-
-function color(value) {
-  return `#${value.toString(16).padStart(6, "0")}`;
-}
-```
-
-- [ ] **Step 4: Add Phaser scenes**
-
-Create scene files with these responsibilities:
-
-`src/game/scenes/BootScene.js`
-
-```js
-import { createGeneratedAssets } from "@game/render/assetFactory.js";
-
-export class BootScene extends Phaser.Scene {
-  constructor() {
-    super("BootScene");
-  }
-
-  create() {
-    createGeneratedAssets(this);
-    this.scene.start("MenuScene");
-  }
-}
-```
-
-`src/game/scenes/MenuScene.js`
-
-```js
-export class MenuScene extends Phaser.Scene {
-  constructor() {
-    super("MenuScene");
-  }
-
-  create() {
-    this.cameras.main.setBackgroundColor("#101820");
-    this.add.rectangle(640, 520, 920, 28, 0x64748b).setStrokeStyle(4, 0xcbd5e1);
-    this.add.text(64, 56, "Pixel Arena Fighter", { fontFamily: "monospace", fontSize: "42px", color: "#f8fafc" });
-    this.add.text(68, 118, "Fullscreen platform fighter - CPU and online rooms", {
-      fontFamily: "monospace",
-      fontSize: "18px",
-      color: "#cbd5e1"
-    });
-    this.makeButton(88, 220, "Fight CPU", () => this.scene.start("MatchScene", { mode: "cpu", difficulty: "normal" }));
-    this.makeButton(88, 292, "Create Online Room", () => this.scene.start("MatchScene", { mode: "online-create" }));
-    this.makeButton(88, 364, "Join Online Room", () => {
-      const code = window.prompt("Room code");
-      if (code) this.scene.start("MatchScene", { mode: "online-join", roomCode: code.trim().toUpperCase() });
-    });
-    this.add.text(88, 470, "Controls: A/D move, W/Space jump, S fast fall, J light, K heavy, L special, Shift dodge", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#f8fafc"
-    });
-  }
-
-  makeButton(x, y, label, onClick) {
-    const text = this.add.text(x, y, label, {
-      fontFamily: "monospace",
-      fontSize: "26px",
-      color: "#101820",
-      backgroundColor: "#facc15",
-      padding: { x: 18, y: 10 }
-    });
-    text.setInteractive({ useHandCursor: true }).on("pointerdown", onClick);
-    return text;
-  }
-}
-```
-
-`src/game/scenes/HudScene.js`
-
-```js
-export class HudScene extends Phaser.Scene {
-  constructor() {
-    super("HudScene");
-  }
-
-  create() {
-    this.left = this.add.text(24, 22, "", { fontFamily: "monospace", fontSize: "24px", color: "#f8fafc" }).setScrollFactor(0);
-    this.right = this.add.text(980, 22, "", { fontFamily: "monospace", fontSize: "24px", color: "#f8fafc" }).setScrollFactor(0);
-    this.center = this.add.text(530, 22, "", { fontFamily: "monospace", fontSize: "18px", color: "#cbd5e1" }).setScrollFactor(0);
-    this.debug = this.add.text(24, 668, "", { fontFamily: "monospace", fontSize: "14px", color: "#94a3b8" }).setScrollFactor(0);
-  }
-
-  updateHud(snapshot, meta = {}) {
-    const p1 = snapshot.fighters.p1;
-    const p2 = snapshot.fighters.p2;
-    this.left.setText(`P1 ${Math.round(p1.damage)}%  Stocks ${p1.stocks}`);
-    this.right.setText(`P2 ${Math.round(p2.damage)}%  Stocks ${p2.stocks}`);
-    this.center.setText(meta.roomCode ? `Room ${meta.roomCode}` : "CPU Match");
-    this.debug.setText(`FPS ${Math.round(this.game.loop.actualFps)}  ${meta.status || ""}`);
-  }
-}
-```
-
-`src/game/scenes/ResultsScene.js`
-
-```js
-export class ResultsScene extends Phaser.Scene {
-  constructor() {
-    super("ResultsScene");
-  }
-
-  create(data) {
-    const winner = data.winnerId?.toUpperCase() || "P1";
-    this.cameras.main.setBackgroundColor("#0f172a");
-    this.add.text(420, 180, `${winner} Wins`, { fontFamily: "monospace", fontSize: "56px", color: "#facc15" });
-    this.add.text(420, 270, `XP +${data.xp || 100}`, { fontFamily: "monospace", fontSize: "26px", color: "#f8fafc" });
-    this.add.text(420, 340, "Click to return to menu", { fontFamily: "monospace", fontSize: "22px", color: "#cbd5e1" });
-    this.input.once("pointerdown", () => this.scene.start("MenuScene"));
-  }
-}
-```
-
-`src/game/scenes/MatchScene.js`
-
-```js
-import { chooseCpuInput } from "@shared/cpu.js";
-import { STAGE } from "@shared/constants.js";
-import { createMatch, queueInput, stepMatch } from "@shared/match.js";
-import { createKeyboardInput } from "@game/input/inputMapper.js";
-import { animationKey } from "@game/render/animationMap.js";
-
-export class MatchScene extends Phaser.Scene {
-  constructor() {
-    super("MatchScene");
-  }
-
-  create(data) {
-    this.mode = data.mode;
-    this.match = createMatch(this.mode === "cpu" ? "cpu" : "online");
-    this.readInput = createKeyboardInput(this);
-    this.fighterSprites = {};
-    this.effects = [];
-    this.cameras.main.setBackgroundColor("#172033");
-    this.add.rectangle(640, 520, STAGE.platform.width, STAGE.platform.height, 0x64748b).setStrokeStyle(4, 0xcbd5e1);
-    this.fighterSprites.p1 = this.add.sprite(this.match.fighters.p1.x, this.match.fighters.p1.y - 39, "blue-fighter", 0).setScale(2);
-    this.fighterSprites.p2 = this.add.sprite(this.match.fighters.p2.x, this.match.fighters.p2.y - 39, "orange-fighter", 0).setScale(2);
-    this.scene.launch("HudScene");
-    this.hud = this.scene.get("HudScene");
-  }
-
-  update(_time, delta) {
-    const input = this.readInput();
-    queueInput(this.match, "p1", input);
-    if (this.mode === "cpu") queueInput(this.match, "p2", chooseCpuInput(this.match, "p2", "normal"));
-    stepMatch(this.match, delta);
-    this.renderSnapshot(this.match, { status: this.mode });
-    if (this.match.status === "complete") {
-      this.scene.stop("HudScene");
-      this.scene.start("ResultsScene", { winnerId: this.match.winnerId, xp: 100 });
-    }
-  }
-
-  renderSnapshot(snapshot, meta = {}) {
-    for (const id of ["p1", "p2"]) {
-      const fighter = snapshot.fighters[id];
-      const sprite = this.fighterSprites[id];
-      sprite.setPosition(fighter.x, fighter.y - 39);
-      sprite.setFlipX(fighter.facing < 0);
-      const key = animationKey(fighter);
-      if (sprite.anims.currentAnim?.key !== key) sprite.play(key, true);
-    }
-    for (const effect of snapshot.effects) {
-      const sprite = this.add.sprite(effect.x, effect.y, effect.type).setScale(2);
-      sprite.play(effect.type);
-      sprite.once("animationcomplete", () => sprite.destroy());
-      if (effect.type === "heavyImpact") this.cameras.main.shake(90, 0.006);
-    }
-    this.hud?.updateHud(snapshot, meta);
-  }
-}
-```
-
-- [ ] **Step 5: Replace main boot**
-
-Replace `src/main.js`:
-
-```js
-import Phaser from "phaser";
-import "./styles.css";
-import { BootScene } from "@game/scenes/BootScene.js";
-import { HudScene } from "@game/scenes/HudScene.js";
-import { MatchScene } from "@game/scenes/MatchScene.js";
-import { MenuScene } from "@game/scenes/MenuScene.js";
-import { ResultsScene } from "@game/scenes/ResultsScene.js";
-
-new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: "game-root",
-  width: 1280,
-  height: 720,
-  pixelArt: true,
-  backgroundColor: "#101820",
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 1280,
-    height: 720
-  },
-  scene: [BootScene, MenuScene, MatchScene, HudScene, ResultsScene]
-});
-```
-
-- [ ] **Step 6: Verify client build**
-
-Run: `npm run build`
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit Phaser client shell**
-
-```bash
-git add src/main.js src/game
-git commit -m "feat: add fullscreen Phaser game client"
-```
-
--->
 
 ## Task 7: Online Client Integration and Progression
 

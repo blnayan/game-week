@@ -145,7 +145,7 @@ Required pre-generated assets:
 - Stage background and stage platform tile art.
 - UI portraits, stock icons, and compact menu/HUD panels.
 
-The repo may include a deterministic asset-generation script so assets can be regenerated, but Phaser should load PNG files from the project asset folder during gameplay.
+Assets are produced once during the asset production task, committed to the repo, and treated as source assets after that. `npm run dev` and `npm run build` must not regenerate art; they should only load the committed PNG files from the project asset folder.
 
 The client will map shared fighter state machine states to Phaser animation keys. Phaser should not be the source of truth for gameplay state; it should visualize the authoritative state coming from local CPU simulation or online server snapshots.
 
