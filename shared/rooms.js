@@ -22,6 +22,12 @@ export function assignPlayerId(players, socketId) {
   return existingSlots.has("p1") ? "p2" : "p1";
 }
 
+export function canJoinRoom(room, socketId) {
+  if (room.match.status === "complete") return { ok: false, error: "Room is complete" };
+  if (room.players.size >= 2 && !room.players.has(socketId)) return { ok: false, error: "Room is full" };
+  return { ok: true };
+}
+
 export function removeSocketFromRooms(rooms, socketId, exceptRoomCode = null) {
   const removed = [];
 
@@ -40,6 +46,12 @@ export function removeSocketFromRooms(rooms, socketId, exceptRoomCode = null) {
   }
 
   return removed;
+}
+
+export function sendAck(ack, payload) {
+  if (typeof ack !== "function") return false;
+  ack(payload);
+  return true;
 }
 
 export function toPublicSnapshot(match) {

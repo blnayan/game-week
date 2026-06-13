@@ -7,9 +7,11 @@ import { FIXED_DT_MS } from "../shared/constants.js";
 import { createMatch, queueInput, stepMatch } from "../shared/match.js";
 import {
   assignPlayerId,
+  canJoinRoom,
   createRoomCode,
   normalizeRoomCode,
   removeSocketFromRooms,
+  sendAck,
   toPublicSnapshot
 } from "../shared/rooms.js";
 
@@ -45,8 +47,9 @@ io.on("connection", (socket) => {
   socket.on("room:join", (payload, ack) => {
     const normalized = normalizeRoomCode(payload);
     const room = rooms.get(normalized);
-    if (!room) return ack?.({ ok: false, error: "Room not found" });
-    if (room.players.size >= 2 && !room.players.has(socket.id)) return ack?.({ ok: false, error: "Room is full" });
+    if (!room) return sendAck(ack, { ok: false, error: "Room not found" });
+    const joinable = canJoinRoom(room, socket.id);
+    if (!joinable.ok) return sendAck(ack, joinable);
     releaseSocketFromGameRooms(socket, room.code);
     joinRoom(socket, room, ack);
   });
@@ -55,7 +58,7 @@ io.on("connection", (socket) => {
     const safePayload = payload && typeof payload === "object" ? payload : {};
     const room = rooms.get(normalizeRoomCode({ code: safePayload.roomCode }));
     const playerId = room?.players.get(socket.id);
-    if (!room || !playerId) return;
+    if (!room || !playerId || room.match.status === "complete") return;
     const input = safePayload.input && typeof safePayload.input === "object" ? safePayload.input : {};
     queueInput(room.match, playerId, input);
   });
@@ -87,7 +90,7 @@ function joinRoom(socket, room, ack) {
   socket.join(room.code);
   const playerId = assignPlayerId(room.players, socket.id);
   room.players.set(socket.id, playerId);
-  ack?.({ ok: true, roomCode: room.code, playerId });
+  sendAck(ack, { ok: true, roomCode: room.code, playerId });
   io.to(room.code).emit("room:status", { message: "Player joined", players: room.players.size, roomCode: room.code });
   socket.emit("match:snapshot", toPublicSnapshot(room.match));
 }

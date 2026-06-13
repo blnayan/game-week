@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   assignPlayerId,
+  canJoinRoom,
   createRoomCode,
   normalizeRoomCode,
   removeSocketFromRooms,
+  sendAck,
   toPublicSnapshot
 } from "../../shared/rooms.js";
 
@@ -75,5 +77,24 @@ describe("room helpers", () => {
     ]);
     expect(oldRoom.players.has("socket-a")).toBe(false);
     expect(targetRoom.players.get("socket-a")).toBe("p2");
+  });
+
+  it("only sends acknowledgements through function callbacks", () => {
+    const ack = vi.fn();
+
+    expect(sendAck(ack, { ok: true })).toBe(true);
+    expect(ack).toHaveBeenCalledWith({ ok: true });
+    expect(sendAck("not-a-function", { ok: false })).toBe(false);
+    expect(sendAck(null, { ok: false })).toBe(false);
+  });
+
+  it("denies joins to completed rooms", () => {
+    const room = {
+      match: { status: "complete" },
+      players: new Map([["socket-a", "p1"]])
+    };
+
+    expect(canJoinRoom(room, "socket-a")).toEqual({ ok: false, error: "Room is complete" });
+    expect(canJoinRoom(room, "socket-b")).toEqual({ ok: false, error: "Room is complete" });
   });
 });
