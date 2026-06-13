@@ -56,6 +56,10 @@ The CPU chooses compact input packets from match state. It approaches when far, 
 
 The pixel-art stage, fighter sheets, portraits, and effects are committed PNG assets under `public/assets/`. They are produced once and loaded by Phaser during boot. `npm run dev` and `npm run build` do not generate or modify art assets.
 
+## Progression
+
+Match results award XP in local storage. Reaching 300 XP unlocks the violet fighter palette, which is shown on the menu and used by the player in CPU Battle.
+
 ## AI-Assisted Learning Notes
 
 The project followed a browser-game pathway from the Game Week brief. AI was used to compare Phaser and raw Canvas, design the network model, define a shared simulation boundary, and plan the state machine so CPU mode and online mode do not diverge.

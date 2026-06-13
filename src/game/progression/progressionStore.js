@@ -23,6 +23,10 @@ export function awardMatchXp(amount) {
   return progress;
 }
 
+export function selectPlayerPalette(progress = loadProgression()) {
+  return progress.palettes.includes("violet") ? "violet" : "blue";
+}
+
 function normalizeProgression(value = DEFAULT_PROGRESSION) {
   const saved = value && typeof value === "object" ? value : {};
   const savedXp = Number(saved.xp);

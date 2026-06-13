@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { updateRoomCodeEntry } from "../input/roomCodeEntry.js";
+import { loadProgression, selectPlayerPalette } from "../progression/progressionStore.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -10,6 +11,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    const progress = loadProgression();
+    this.playerPalette = selectPlayerPalette(progress);
     this.joinCode = "";
     this.joinMode = false;
     this.add.image(WIDTH / 2, HEIGHT / 2, "stage:city-beach").setDisplaySize(WIDTH, HEIGHT);
@@ -24,7 +27,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.createButton(82, 230, "CPU Battle", () => {
-      this.scene.start("MatchScene", { mode: "cpu" });
+      this.scene.start("MatchScene", { mode: "cpu", playerPalette: this.playerPalette });
     });
 
     this.createButton(82, 304, "Create Online Room", () => {
@@ -39,6 +42,14 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: "monospace",
       fontSize: "20px",
       color: "#ffffff",
+      stroke: "#07111f",
+      strokeThickness: 4
+    });
+
+    this.add.text(76, 520, `Level ${progress.level}  XP ${progress.xp}  Palette ${this.playerPalette.toUpperCase()}`, {
+      fontFamily: "monospace",
+      fontSize: "18px",
+      color: this.playerPalette === "violet" ? "#d8b4fe" : "#d7ecff",
       stroke: "#07111f",
       strokeThickness: 4
     });

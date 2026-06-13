@@ -19,6 +19,9 @@ export class MatchScene extends Phaser.Scene {
     this.mode = data.mode || "cpu";
     this.roomCode = data.roomCode || "";
     this.match = createMatch(this.mode);
+    if (this.mode === "cpu" && data.playerPalette) {
+      this.match.fighters.p1.palette = data.playerPalette;
+    }
     this.readPlayerInput = createKeyboardInput(this);
     this.onlineInputLatch = createOnlineInputLatch();
     this.effectSprites = [];

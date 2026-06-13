@@ -25,5 +25,7 @@ export const MATCH = {
   startingStocks: 3,
   matchSeconds: 180,
   respawnMs: 1200,
-  invulnerableMs: 1800
+  invulnerableMs: 1800,
+  dodgeMs: 180,
+  shieldMs: 140
 };

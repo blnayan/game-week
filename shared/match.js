@@ -56,6 +56,7 @@ export function stepMatch(match, dtMs) {
     const fighter = match.fighters[fighterId];
     const input = match.inputs[fighterId];
     applyInputState(fighter, input);
+    tryStartDefense(fighter, input);
     tryStartAttack(fighter, input);
   }
 
@@ -69,6 +70,26 @@ export function stepMatch(match, dtMs) {
   }
 
   return match;
+}
+
+function tryStartDefense(fighter, input) {
+  const dodgePressed = Boolean(input.dodge);
+  const freshDodgePress = dodgePressed && !fighter.dodgeHeld;
+  fighter.dodgeHeld = dodgePressed;
+
+  if (freshDodgePress && canControl(fighter)) {
+    fighter.activeAttack = null;
+    fighter.invulnerableMs = Math.max(fighter.invulnerableMs, MATCH.dodgeMs);
+    fighter.velocity.x = fighter.facing * PHYSICS.runSpeed * 1.4;
+    setFighterState(fighter, FighterStates.Dodge, MATCH.dodgeMs);
+    return;
+  }
+
+  if (input.shield && canControl(fighter)) {
+    fighter.activeAttack = null;
+    fighter.velocity.x *= 0.35;
+    setFighterState(fighter, FighterStates.Shield, MATCH.shieldMs);
+  }
 }
 
 function tryStartAttack(fighter, input) {
@@ -99,6 +120,13 @@ function resolveAttack(match, attackerId, defenderId) {
   }
 
   if (!rectsOverlap(getAttackRect(attacker, attack), getFighterRect(defender))) return;
+
+  if (defender.state === FighterStates.Shield && defender.stateTimerMs > 0) {
+    defender.damage += Math.max(1, Math.round(attack.damage * 0.25));
+    attacker.activeAttack.hasHit = true;
+    match.effects.push({ type: "shieldShimmer", x: defender.x, y: defender.y - 34 });
+    return;
+  }
 
   const scale = 1 + defender.damage / 100;
   defender.damage += attack.damage;

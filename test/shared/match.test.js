@@ -81,4 +81,33 @@ describe("match simulation", () => {
     expect(match.fighters.p1.state).toBe(FighterStates.AttackLight);
     expect(match.fighters.p1.activeAttack).toMatchObject({ key: "light", hasHit: false });
   });
+
+  it("dodge makes a fighter avoid an overlapping attack", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.x = 500;
+    match.fighters.p2.x = 548;
+
+    queueInput(match, "p1", { light: true });
+    queueInput(match, "p2", { dodge: true });
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p2.state).toBe(FighterStates.Dodge);
+    expect(match.fighters.p2.damage).toBe(0);
+    expect(match.fighters.p2.invulnerableMs).toBeGreaterThan(0);
+  });
+
+  it("shield absorbs an overlapping attack without entering hitstun", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.x = 500;
+    match.fighters.p2.x = 548;
+
+    queueInput(match, "p1", { light: true });
+    queueInput(match, "p2", { shield: true });
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p2.state).toBe(FighterStates.Shield);
+    expect(match.fighters.p2.damage).toBeLessThan(7);
+    expect(match.fighters.p2.state).not.toBe(FighterStates.Hitstun);
+    expect(match.effects).toContainEqual(expect.objectContaining({ type: "shieldShimmer" }));
+  });
 });

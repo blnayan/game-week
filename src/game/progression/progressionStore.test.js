@@ -9,7 +9,7 @@ vi.stubGlobal("window", {
   }
 });
 
-const { awardMatchXp, loadProgression } = await import("./progressionStore.js");
+const { awardMatchXp, loadProgression, selectPlayerPalette } = await import("./progressionStore.js");
 
 describe("progression store", () => {
   beforeEach(() => {
@@ -49,5 +49,10 @@ describe("progression store", () => {
     storage.set("pixel-arena-progress", JSON.stringify({ xp: 300, palettes: ["blue", "debug", "violet"] }));
 
     expect(loadProgression()).toEqual({ xp: 300, level: 2, palettes: ["blue", "orange", "violet"] });
+  });
+
+  it("selects violet as the player palette after unlock", () => {
+    expect(selectPlayerPalette({ palettes: ["blue", "orange"] })).toBe("blue");
+    expect(selectPlayerPalette({ palettes: ["blue", "orange", "violet"] })).toBe("violet");
   });
 });
