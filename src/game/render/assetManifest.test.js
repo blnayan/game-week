@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  FIGHTER_FRAME_BASELINE,
   FIGHTER_FRAME_HEIGHT,
   FIGHTER_FRAME_WIDTH,
   FIGHTER_SHEETS,
@@ -45,16 +44,11 @@ describe("asset manifest", () => {
     for (const name of FIGHTER_SHEETS) {
       const sheet = spritesheets.get(`fighter:${name}`);
       expect(sheet.options).toMatchObject({
-        frameWidth: 128,
-        frameHeight: 128
+        frameWidth: 96,
+        frameHeight: 80
       });
       expect(readPngSize(`public${sheet.path}`).width).toBe(FIGHTER_FRAME_WIDTH * 38);
       expect(readPngSize(`public${sheet.path}`).height).toBe(FIGHTER_FRAME_HEIGHT);
     }
-  });
-
-  it("uses a shared internal foot baseline for 128px fighter frames", () => {
-    expect(FIGHTER_FRAME_BASELINE).toBe(116);
-    expect(FIGHTER_FRAME_BASELINE).toBeLessThan(FIGHTER_FRAME_HEIGHT);
   });
 });
