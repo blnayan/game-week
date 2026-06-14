@@ -1,23 +1,21 @@
 export const FIGHTER_SHEETS = ["blue", "orange", "violet"];
-export const FIGHTER_FRAME_WIDTH = 96;
-export const FIGHTER_FRAME_HEIGHT = 80;
+export const FIGHTER_FRAME_WIDTH = 128;
+export const FIGHTER_FRAME_HEIGHT = 128;
+export const FIGHTER_FRAME_BASELINE = 108;
 
 export const FIGHTER_ANIMS = Object.freeze({
-  idle: [0, 1, 0, 2],
-  run: [3, 4, 5, 4],
+  idle: [0, 1],
+  run: [2, 3, 4, 5],
   jump: [6],
-  fall: [7],
-  light: [8, 9, 10],
-  heavy: [11, 12, 13, 14],
-  up: [15, 16, 17],
-  special: [18, 19, 20, 21],
-  dodge: [22, 23],
-  shield: [24, 25],
-  hurt: [26, 27],
-  launched: [28, 29],
-  respawn: [30, 31, 32],
-  ko: [33, 34],
-  victory: [35, 36, 37, 36]
+  fall: [6],
+  light: [7],
+  dive: [8],
+  heavy: [9, 10],
+  hurt: [10],
+  launched: [6],
+  respawn: [6, 0, 1],
+  ko: [8],
+  victory: [0, 1]
 });
 
 export const EFFECT_ANIMS = Object.freeze({
@@ -30,7 +28,7 @@ export const EFFECT_ANIMS = Object.freeze({
   koStreak: 6
 });
 
-const LOOPING_FIGHTER_ANIMS = new Set(["idle", "run", "victory", "shield"]);
+const LOOPING_FIGHTER_ANIMS = new Set(["idle", "run", "victory"]);
 
 export function loadGameAssets(scene) {
   for (const name of FIGHTER_SHEETS) {
