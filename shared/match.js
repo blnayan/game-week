@@ -51,8 +51,9 @@ export function stepMatch(match, dtMs) {
   for (const fighterId of ["p1", "p2"]) {
     const fighter = match.fighters[fighterId];
     const input = match.inputs[fighterId];
+    const wasOnGround = fighter.onGround;
     applyInputState(fighter, input);
-    tryStartAttack(fighter, input);
+    tryStartAttack(fighter, input, wasOnGround);
   }
 
   resolveAttack(match, "p1", "p2");
@@ -67,12 +68,12 @@ export function stepMatch(match, dtMs) {
   return match;
 }
 
-function tryStartAttack(fighter, input) {
+function tryStartAttack(fighter, input, wasOnGround) {
   const downPressed = Boolean(input.down);
   const freshDownPress = downPressed && !fighter.downHeld;
   fighter.downHeld = downPressed;
 
-  const attackKey = input.light ? "light" : input.heavy ? "heavy" : freshDownPress && !fighter.onGround ? "dive" : null;
+  const attackKey = input.light ? "light" : input.heavy ? "heavy" : freshDownPress && !wasOnGround ? "dive" : null;
   const lightOrHeavyPressed = Boolean(input.light || input.heavy);
   const freshAttackPress = attackKey === "dive" || (lightOrHeavyPressed && !fighter.attackHeld);
   fighter.attackHeld = lightOrHeavyPressed;

@@ -109,6 +109,19 @@ describe("match simulation", () => {
     expect(match.fighters.p1.activeAttack).toBeNull();
   });
 
+  it("does not start a dive attack from same-frame grounded jump and down", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.y = STAGE.platform.y;
+    match.fighters.p1.onGround = true;
+
+    queueInput(match, "p1", { jump: true, down: true });
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p1.state).toBe(FighterStates.Jump);
+    expect(match.fighters.p1.state).not.toBe(FighterStates.DiveAttack);
+    expect(match.fighters.p1.activeAttack).toBeNull();
+  });
+
   it("requires a fresh airborne down press after holding down on the ground", () => {
     const match = createMatch("cpu");
     match.fighters.p1.y = STAGE.platform.y;
