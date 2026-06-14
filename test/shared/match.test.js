@@ -83,32 +83,60 @@ describe("match simulation", () => {
     expect(match.fighters.p1.activeAttack).toMatchObject({ key: "light", hasHit: false });
   });
 
-  it("dodge makes a fighter avoid an overlapping attack", () => {
+  it("starts a dive attack from airborne down input", () => {
     const match = createMatch("cpu");
-    match.fighters.p1.x = 500;
-    match.fighters.p2.x = 548;
+    match.fighters.p1.y = STAGE.platform.y - 120;
+    match.fighters.p1.onGround = false;
+    match.fighters.p1.velocity.y = 2;
 
-    queueInput(match, "p1", { light: true });
-    queueInput(match, "p2", { dodge: true });
+    queueInput(match, "p1", { down: true });
     stepMatch(match, 16.67);
 
-    expect(match.fighters.p2.state).toBe(FighterStates.Dodge);
-    expect(match.fighters.p2.damage).toBe(0);
-    expect(match.fighters.p2.invulnerableMs).toBeGreaterThan(0);
+    expect(match.fighters.p1.state).toBe(FighterStates.DiveAttack);
+    expect(match.fighters.p1.activeAttack).toMatchObject({ key: "dive", hasHit: false });
+    expect(match.fighters.p1.velocity.y).toBeGreaterThan(2);
   });
 
-  it("shield absorbs an overlapping attack without entering hitstun", () => {
+  it("does not start a dive attack from grounded down input", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.y = STAGE.platform.y;
+    match.fighters.p1.onGround = true;
+
+    queueInput(match, "p1", { down: true });
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p1.state).toBe(FighterStates.Idle);
+    expect(match.fighters.p1.activeAttack).toBeNull();
+  });
+
+  it("applies damage when a dive attack overlaps below the attacker", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.x = 500;
+    match.fighters.p1.y = STAGE.platform.y - 84;
+    match.fighters.p1.onGround = false;
+    match.fighters.p1.velocity.y = 4;
+    match.fighters.p2.x = 500;
+    match.fighters.p2.y = STAGE.platform.y;
+
+    queueInput(match, "p1", { down: true });
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p2.damage).toBeGreaterThan(0);
+    expect(match.fighters.p2.state).toBe(FighterStates.Hitstun);
+    expect(match.effects).toContainEqual(expect.objectContaining({ type: "hitSpark" }));
+  });
+
+  it("ignores removed up special dodge and shield inputs", () => {
     const match = createMatch("cpu");
     match.fighters.p1.x = 500;
     match.fighters.p2.x = 548;
 
-    queueInput(match, "p1", { light: true });
-    queueInput(match, "p2", { shield: true });
+    queueInput(match, "p1", { up: true, special: true, dodge: true, shield: true });
     stepMatch(match, 16.67);
 
-    expect(match.fighters.p2.state).toBe(FighterStates.Shield);
-    expect(match.fighters.p2.damage).toBeLessThan(7);
-    expect(match.fighters.p2.state).not.toBe(FighterStates.Hitstun);
-    expect(match.effects).toContainEqual(expect.objectContaining({ type: "shieldShimmer" }));
+    expect(match.fighters.p1.state).toBe(FighterStates.Idle);
+    expect(match.fighters.p1.activeAttack).toBeNull();
+    expect(match.fighters.p1.invulnerableMs).toBe(0);
+    expect(match.fighters.p2.damage).toBe(0);
   });
 });

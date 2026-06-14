@@ -67,4 +67,25 @@ describe("fighter state machine", () => {
     applyInputState(fighter, { left: false, right: false, jump: true, down: false });
     expect(fighter.jumpsRemaining).toBe(0);
   });
+
+  it("does not fast fall or change state from grounded down input", () => {
+    const fighter = createFighter("p1", 260, 420, 1);
+
+    applyInputState(fighter, { left: false, right: false, jump: false, down: true });
+
+    expect(fighter.state).toBe(FighterStates.Idle);
+    expect(fighter.velocity.y).toBe(0);
+  });
+
+  it("keeps double jump available from a fresh second space press", () => {
+    const fighter = createFighter("p1", 260, 420, 1);
+
+    applyInputState(fighter, { left: false, right: false, jump: true, down: false });
+    applyInputState(fighter, { left: false, right: false, jump: false, down: false });
+    applyInputState(fighter, { left: false, right: false, jump: true, down: false });
+
+    expect(fighter.jumpsRemaining).toBe(0);
+    expect(fighter.state).toBe(FighterStates.Jump);
+    expect(fighter.velocity.y).toBeLessThan(0);
+  });
 });

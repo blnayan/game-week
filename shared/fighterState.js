@@ -7,10 +7,7 @@ export const FighterStates = Object.freeze({
   Fall: "Fall",
   AttackLight: "AttackLight",
   AttackHeavy: "AttackHeavy",
-  AttackUp: "AttackUp",
-  Special: "Special",
-  Dodge: "Dodge",
-  Shield: "Shield",
+  DiveAttack: "DiveAttack",
   Hitstun: "Hitstun",
   Launched: "Launched",
   Respawn: "Respawn",
@@ -35,7 +32,6 @@ export function createFighter(id, x, y, facing = 1, palette = "blue") {
     jumpsRemaining: 2,
     jumpHeld: false,
     attackHeld: false,
-    dodgeHeld: false,
     damage: 0,
     stocks: MATCH.startingStocks,
     invulnerableMs: 0,
@@ -49,10 +45,7 @@ export function isTimedActionState(state) {
   return [
     FighterStates.AttackLight,
     FighterStates.AttackHeavy,
-    FighterStates.AttackUp,
-    FighterStates.Special,
-    FighterStates.Dodge,
-    FighterStates.Shield
+    FighterStates.DiveAttack
   ].includes(state);
 }
 
@@ -100,9 +93,6 @@ export function applyInputState(fighter, input) {
     setFighterState(fighter, FighterStates.Jump);
   }
 
-  if (input.down && !fighter.onGround) {
-    fighter.velocity.y = Math.max(fighter.velocity.y, PHYSICS.fastFallSpeed);
-  }
 }
 
 export function enterHitstun(fighter, knockback, durationMs) {

@@ -32,14 +32,10 @@ export function createEmptyInput() {
   return {
     left: false,
     right: false,
-    up: false,
     down: false,
     jump: false,
     light: false,
-    heavy: false,
-    special: false,
-    dodge: false,
-    shield: false
+    heavy: false
   };
 }
 
@@ -56,7 +52,6 @@ export function stepMatch(match, dtMs) {
     const fighter = match.fighters[fighterId];
     const input = match.inputs[fighterId];
     applyInputState(fighter, input);
-    tryStartDefense(fighter, input);
     tryStartAttack(fighter, input);
   }
 
@@ -72,28 +67,8 @@ export function stepMatch(match, dtMs) {
   return match;
 }
 
-function tryStartDefense(fighter, input) {
-  const dodgePressed = Boolean(input.dodge);
-  const freshDodgePress = dodgePressed && !fighter.dodgeHeld;
-  fighter.dodgeHeld = dodgePressed;
-
-  if (freshDodgePress && canControl(fighter)) {
-    fighter.activeAttack = null;
-    fighter.invulnerableMs = Math.max(fighter.invulnerableMs, MATCH.dodgeMs);
-    fighter.velocity.x = fighter.facing * PHYSICS.runSpeed * 1.4;
-    setFighterState(fighter, FighterStates.Dodge, MATCH.dodgeMs);
-    return;
-  }
-
-  if (input.shield && canControl(fighter)) {
-    fighter.activeAttack = null;
-    fighter.velocity.x *= 0.35;
-    setFighterState(fighter, FighterStates.Shield, MATCH.shieldMs);
-  }
-}
-
 function tryStartAttack(fighter, input) {
-  const attackKey = input.light ? "light" : input.heavy ? "heavy" : input.up ? "up" : input.special ? "special" : null;
+  const attackKey = input.light ? "light" : input.heavy ? "heavy" : input.down && !fighter.onGround ? "dive" : null;
   const attackPressed = attackKey !== null;
   const freshAttackPress = attackPressed && !fighter.attackHeld;
   fighter.attackHeld = attackPressed;
@@ -105,6 +80,9 @@ function tryStartAttack(fighter, input) {
   const attack = ATTACKS[attackKey];
   fighter.activeAttack = { key: attackKey, remainingMs: attack.activeMs, hasHit: false };
   fighter.attackCooldownMs = attack.cooldownMs;
+  if (attackKey === "dive") {
+    fighter.velocity.y = Math.max(fighter.velocity.y, attack.diveVelocityY);
+  }
   setFighterState(fighter, attack.state, attack.activeMs);
 }
 
@@ -120,13 +98,6 @@ function resolveAttack(match, attackerId, defenderId) {
   }
 
   if (!rectsOverlap(getAttackRect(attacker, attack), getFighterRect(defender))) return;
-
-  if (defender.state === FighterStates.Shield && defender.stateTimerMs > 0) {
-    defender.damage += Math.max(1, Math.round(attack.damage * 0.25));
-    attacker.activeAttack.hasHit = true;
-    match.effects.push({ type: "shieldShimmer", x: defender.x, y: defender.y - 34 });
-    return;
-  }
 
   const scale = 1 + defender.damage / 100;
   defender.damage += attack.damage;
