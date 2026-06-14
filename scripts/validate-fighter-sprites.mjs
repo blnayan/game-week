@@ -4,13 +4,13 @@ import { inflateSync } from "node:zlib";
 const EXPECTED = {
   frameWidth: 128,
   frameHeight: 128,
-  frames: 11,
-  width: 128 * 11,
+  frames: 12,
+  width: 128 * 12,
   height: 128,
   signature: "89504e470d0a1a0a"
 };
 
-const EXPECTED_VISIBLE_HEIGHTS = [76, 76, 76, 76, 76, 76, 84, 76, 108, 82, 76];
+const EXPECTED_VISIBLE_HEIGHTS = [76, 76, 76, 76, 76, 76, 84, 76, 108, 82, 76, 76];
 
 function parsePng(path) {
   const png = readFileSync(path);

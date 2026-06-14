@@ -11,7 +11,7 @@ export const FIGHTER_ANIMS = Object.freeze({
   light: [7],
   dive: [8],
   heavy: [9, 10],
-  hurt: [10],
+  hurt: [11],
   launched: [6],
   respawn: [6, 0, 1],
   ko: [8],

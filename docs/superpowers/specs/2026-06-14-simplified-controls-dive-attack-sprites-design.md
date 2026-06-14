@@ -77,8 +77,8 @@ Each fighter sheet will be rebuilt from the ground up as a transparent single-ro
 
 - Frame size: 128px wide by 128px high.
 - Character source-art body target: about the current visible body size, roughly 76px tall.
-- Frame count: 11 unique art frames for the minimal gameplay set.
-- Sheet size: 1408px wide by 128px high.
+- Frame count: 12 unique art frames for the minimal gameplay set.
+- Sheet size: 1536px wide by 128px high.
 - Background: transparent.
 - Pixel-art style: crisp shapes, limited palettes, chunky outlines, no antialiasing blur.
 
@@ -90,7 +90,7 @@ The three committed fighter files remain:
 - `public/assets/fighters/orange.png`
 - `public/assets/fighters/violet.png`
 
-The sheets should use AI-generated raster sprite art. Local scripts may be used only for mechanical post-processing such as removing a chroma-key background, resizing, cropping, assembling frames into the exact 1408x128 sheet, palette variants from approved art, and validating PNG dimensions. The character poses themselves should not be drawn by deterministic geometry code.
+The sheets should use AI-generated raster sprite art. Local scripts may be used only for mechanical post-processing such as removing a chroma-key background, resizing, cropping, assembling frames into the exact 1536x128 sheet, palette variants from approved art, and validating PNG dimensions. The character poses themselves should not be drawn by deterministic geometry code.
 
 ## Minimal Animation Coverage
 
@@ -102,11 +102,11 @@ The reduced animation map should prioritize the fewest readable frames. The uniq
 - Frame 7: `light`, one strike frame from the fighting idle stance.
 - Frame 8: `dive`, one downward attack frame derived from the jump pose.
 - Frames 9-10: `heavy`, two frames for windup and committed strike.
+- Frame 11: `hurt`, one getting-hit reaction pose.
 
 The runtime animation map can reuse these art frames for non-player lifecycle states instead of adding dedicated art:
 
 - `fall`: reuse the single `jump` frame.
-- `hurt`: reuse the `heavy` strike or `dive` frame, whichever reads better during implementation.
 - `launched`: reuse the `jump` or `dive` frame.
 - `respawn`: reuse the `jump` or `idle` frames.
 - `ko`: reuse the `dive` or `heavy` strike frame.
@@ -136,7 +136,7 @@ Tests should be updated or added before implementation changes:
 - Match tests proving airborne `S` starts `DiveAttack`, grounded `S` does nothing, and dive attacks can hit.
 - Match tests proving removed inputs do not start up, special, dodge, or shield behavior.
 - CPU tests proving it emits only the simplified move set.
-- Asset manifest tests proving 128x128 fighter frame dimensions, 11-frame fighter sheets, and expected 1408x128 PNG sheet dimensions.
+- Asset manifest tests proving 128x128 fighter frame dimensions, 12-frame fighter sheets, and expected 1536x128 PNG sheet dimensions.
 - Animation map tests or equivalent assertions proving removed move animations are not required and `DiveAttack` resolves to `dive`.
 
 Verification should run the focused tests first, then the full test suite and production build:
@@ -145,7 +145,7 @@ Verification should run the focused tests first, then the full test suite and pr
 - `npm test`
 - `npm run build`
 
-A local visual pass should confirm the characters remain the same apparent size, the 128x128 frames do not clip attacks, the two-frame idle stance and four-frame run read clearly, light/heavy/dive frames communicate the attacks, and the simplified controls work in a CPU match.
+A local visual pass should confirm the characters remain the same apparent size, the 128x128 frames do not clip attacks, the two-frame idle stance and four-frame run read clearly, light/heavy/dive/hurt frames communicate the actions, and the simplified controls work in a CPU match.
 
 ## Out Of Scope
 
@@ -158,5 +158,5 @@ This change does not add new characters, new stages, new online room features, p
 - Dive attack is defined as a real airborne attack, not a generic fast fall.
 - Double jump remains in scope and unchanged.
 - The sprite frame size increases to 128x128 while the character body target stays near the current size.
-- The unique sprite art is reduced to 11 frames, using two idle frames, four run frames, one jump frame, one light frame, one dive frame, and two heavy frames.
+- The unique sprite art is reduced to 12 frames, using two idle frames, four run frames, one jump frame, one light frame, one dive frame, two heavy frames, and one hurt frame.
 - The design keeps lifecycle states that the match still needs, avoiding an unsafe full state purge.

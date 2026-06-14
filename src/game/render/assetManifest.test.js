@@ -48,7 +48,7 @@ describe("asset manifest", () => {
         frameWidth: 128,
         frameHeight: 128
       });
-      expect(readPngSize(`public${sheet.path}`).width).toBe(FIGHTER_FRAME_WIDTH * 11);
+      expect(readPngSize(`public${sheet.path}`).width).toBe(FIGHTER_FRAME_WIDTH * 12);
       expect(readPngSize(`public${sheet.path}`).height).toBe(FIGHTER_FRAME_HEIGHT);
     }
   });

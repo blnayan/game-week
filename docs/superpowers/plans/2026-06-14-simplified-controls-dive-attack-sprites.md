@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Simplify the fighter controls to `A/D`, `Space`, `J`, `K`, and airborne `S`, add a real dive attack, and replace each fighter sheet with an 11-frame 128x128 sheet that keeps the character body near the current visible size.
+**Goal:** Simplify the fighter controls to `A/D`, `Space`, `J`, `K`, and airborne `S`, add a real dive attack, and replace each fighter sheet with a 12-frame 128x128 sheet that keeps the character body near the current visible size.
 
-**Architecture:** Keep the existing shared simulation boundary: `shared/` owns gameplay state, attacks, CPU, and match stepping; Phaser code maps keyboard input and renders shared state. Remove player-facing up/special/dodge/shield behavior from shared combat and rendering, but keep lifecycle states such as hitstun, launched, respawn, KO, and victory. Use AI-generated raster sprite art for the fighter poses, then commit exact 1408x128 PNG sheets after mechanical post-processing and validation.
+**Architecture:** Keep the existing shared simulation boundary: `shared/` owns gameplay state, attacks, CPU, and match stepping; Phaser code maps keyboard input and renders shared state. Remove player-facing up/special/dodge/shield behavior from shared combat and rendering, but keep lifecycle states such as hitstun, launched, respawn, KO, and victory. Use AI-generated raster sprite art for the fighter poses, then commit exact 1536x128 PNG sheets after mechanical post-processing and validation.
 
 **Tech Stack:** JavaScript ES modules, Vitest, Phaser 3, Node built-ins (`fs`, `path`, `zlib`), PNG assets under `public/assets/fighters/`.
 
@@ -23,13 +23,13 @@
 - Modify `test/shared/match.test.js`: covers dive attack start, hit, cooldown, and removed inputs.
 - Modify `shared/cpu.js`: emits only movement, jump, light, heavy, and down/dive.
 - Modify `test/shared/cpu.test.js`: asserts the simplified CPU input set.
-- Modify `src/game/render/assetManifest.test.js`: asserts 128x128 frames and 1408x128 fighter PNGs.
-- Modify `src/game/render/assetManifest.js`: loads 128x128 sheets and 11-frame animation definitions.
+- Modify `src/game/render/assetManifest.test.js`: asserts 128x128 frames and 1536x128 fighter PNGs.
+- Modify `src/game/render/assetManifest.js`: loads 128x128 sheets and 12-frame animation definitions.
 - Modify `src/game/render/animationMap.test.js`: add this focused unit test file for state-to-animation mapping.
 - Modify `src/game/render/animationMap.js`: maps `DiveAttack` to `dive`, removes old public move mappings.
 - Create `tmp/ai-fighter-sprites/`: temporary AI sprite source exports and post-processing workspace, not committed.
 - Create `scripts/validate-fighter-sprites.mjs`: PNG dimension and transparency validator only.
-- Modify `public/assets/fighters/blue.png`, `public/assets/fighters/orange.png`, `public/assets/fighters/violet.png`: generated 1408x128 sheets.
+- Modify `public/assets/fighters/blue.png`, `public/assets/fighters/orange.png`, `public/assets/fighters/violet.png`: generated 1536x128 sheets.
 - Modify `src/game/render/renderScale.test.js` and `src/game/render/renderScale.js`: keep apparent fighter size stable after moving to 128px frames.
 - Modify `src/game/scenes/MatchScene.js`: anchor sprites to an internal frame baseline.
 - Modify `src/game/scenes/MenuScene.js`: updates visible controls text.
@@ -915,7 +915,7 @@ Run:
 npm test -- src/game/render/assetManifest.test.js src/game/render/animationMap.test.js src/game/render/renderScale.test.js
 ```
 
-Expected: still FAIL on PNG dimensions until Task 5 generates the 1408x128 fighter sheets; animation map and render scale assertions should pass.
+Expected: still FAIL on PNG dimensions until Task 5 generates the 1536x128 fighter sheets; animation map and render scale assertions should pass.
 
 - [ ] **Step 9: Commit render code and tests before generated assets**
 
@@ -926,7 +926,7 @@ git add src/game/render/assetManifest.test.js src/game/render/assetManifest.js s
 git commit -m "feat: map minimal fighter animations"
 ```
 
-## Task 5: AI-Generated 11-Frame Fighter Sheets
+## Task 5: AI-Generated 12-Frame Fighter Sheets
 
 **Files:**
 - Create: `scripts/validate-fighter-sprites.mjs`
@@ -945,7 +945,7 @@ Use case: stylized-concept
 Asset type: pixel-art fighting game sprite sheet source
 Primary request: Create exactly one side-view pixel-art platform-fighter pose on a perfectly flat solid #00ff00 chroma-key background for background removal.
 Character scale: each character body should be about 76 px tall after final resizing, with extra transparent room inside a 128x128 game frame.
-Approved final pose order: idle fighting stance A, idle fighting stance B, run stride frame 1, run passing-step frame 1, run stride frame 2, run passing-step frame 2 using the other leg, jump from fighting stance, light attack from idle stance, downward dive attack from jump pose, heavy attack windup, heavy attack strike.
+Approved final pose order: idle fighting stance A, idle fighting stance B, run stride frame 1, run passing-step frame 1, run stride frame 2, run passing-step frame 2 using the other leg, jump from fighting stance, light attack from idle stance, downward dive attack from jump pose, heavy attack windup, heavy attack strike, getting-hit reaction.
 Style/medium: crisp original pixel-art game sprites, chunky readable silhouette, limited color palette, strong outline, no antialiasing blur, no text, no labels, no frame numbers.
 Composition/framing: one full-body pose only, side-facing toward screen right, consistent character proportions and costume across all poses, generous padding around the pose.
 Constraints: background must be one uniform #00ff00 with no shadows, gradients, texture, floor plane, or lighting variation; do not use #00ff00 anywhere in the character; no watermark.
@@ -970,7 +970,7 @@ The output files must be:
 - `public/assets/fighters/orange.png`
 - `public/assets/fighters/violet.png`
 
-Each output must be a transparent PNG exactly 1408px wide by 128px high.
+Each output must be a transparent PNG exactly 1536px wide by 128px high.
 
 Use the installed chroma-key helper for background removal when applicable:
 
@@ -995,7 +995,7 @@ Create `scripts/validate-fighter-sprites.mjs`:
 import { readFileSync } from "node:fs";
 
 const EXPECTED = {
-  width: 1408,
+  width: 1536,
   height: 128,
   signature: "89504e470d0a1a0a"
 };
@@ -1031,7 +1031,7 @@ node scripts/validate-fighter-sprites.mjs
 npm test -- src/game/render/assetManifest.test.js src/game/render/animationMap.test.js src/game/render/renderScale.test.js
 ```
 
-Expected: validator reports all three fighter sheets as 1408x128 PNGs with alpha, approved visible heights, and no frame-edge clipping; render tests pass.
+Expected: validator reports all three fighter sheets as 1536x128 PNGs with alpha, approved visible heights, and no frame-edge clipping; render tests pass.
 
 - [ ] **Step 5: Commit AI-generated sprites**
 
@@ -1137,12 +1137,12 @@ Open the Vite localhost URL and start a CPU Battle. Verify:
 - `W`, `L`, `Shift`, and `I` do not trigger gameplay actions.
 - The three fighter sheets render without clipping.
 - Fighters remain about the same apparent size as before.
-- The two-frame idle, four-frame run, one-frame jump, one-frame light, one-frame dive, and two-frame heavy are readable in play.
+- The two-frame idle, four-frame run, one-frame jump, one-frame light, one-frame dive, two-frame heavy, and one-frame hurt are readable in play.
 
 Stop the dev server after verification.
 
 ## Final Self-Review Checklist
 
-- Spec coverage: controls, dive attack, double jump, removed moves, CPU, online inputs, 128x128 sheets, 11 unique frames, docs, and visual verification are each covered by a task.
+- Spec coverage: controls, dive attack, double jump, removed moves, CPU, online inputs, 128x128 sheets, 12 unique frames, docs, and visual verification are each covered by a task.
 - Placeholder scan: no task uses placeholder markers, copy-by-reference wording, or unstated implementation work.
-- Type consistency: the plan consistently uses `down` as the input field for `S`, `DiveAttack` as the fighter state, `dive` as the attack key and animation name, 128x128 frame constants, and 11 total frames.
+- Type consistency: the plan consistently uses `down` as the input field for `S`, `DiveAttack` as the fighter state, `dive` as the attack key and animation name, 128x128 frame constants, and 12 total frames.
