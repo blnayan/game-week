@@ -1,0 +1,19 @@
+name: pixel-arena-fighter
+
+services:
+  web:
+    build: .
+    container_name: pixel-arena-fighter-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    expose:
+      - "3000"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: proxy

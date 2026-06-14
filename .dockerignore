@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.DS_Store
+npm-debug.log*
+Dockerfile
+docker-compose.yml
+docs
+test
+src/**/*.test.js
+test/**/*.test.js
+GAME WEEK Week 7.pdf
