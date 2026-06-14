@@ -2,9 +2,9 @@ import { STAGE } from "./constants.js";
 import { createEmptyInput } from "./match.js";
 
 const DIFFICULTY = {
-  easy: { attackRange: 70, specialRange: 150 },
-  normal: { attackRange: 86, specialRange: 190 },
-  hard: { attackRange: 100, specialRange: 230 }
+  easy: { lightRange: 70, heavyRange: 0 },
+  normal: { lightRange: 86, heavyRange: 108 },
+  hard: { lightRange: 100, heavyRange: 128 }
 };
 
 const PULSE_MS = 120;
@@ -20,6 +20,7 @@ export function chooseCpuInput(match, cpuId = "p2", difficulty = "normal") {
 
   const profile = DIFFICULTY[difficulty] ?? DIFFICULTY.normal;
   const dx = player.x - cpu.x;
+  const dy = player.y - cpu.y;
   const distance = Math.abs(dx);
   const shouldPulse = Math.floor((match.elapsedMs ?? 0) / PULSE_MS) % 2 === 0;
 
@@ -29,16 +30,21 @@ export function chooseCpuInput(match, cpuId = "p2", difficulty = "normal") {
     return input;
   }
 
-  if (distance > profile.attackRange) {
+  if (!cpu.onGround && shouldPulse && Math.abs(dx) <= 70 && dy > 40) {
+    input.down = true;
+    return input;
+  }
+
+  if (distance > profile.lightRange) {
     input[dx > 0 ? "right" : "left"] = true;
   }
 
   const canAttack = (cpu.attackCooldownMs ?? 0) === 0 && shouldPulse;
 
-  if (canAttack && distance <= profile.attackRange) {
+  if (canAttack && profile.heavyRange > 0 && distance > profile.lightRange && distance <= profile.heavyRange) {
+    input.heavy = true;
+  } else if (canAttack && distance <= profile.lightRange) {
     input.light = true;
-  } else if (canAttack && distance <= profile.specialRange && difficulty !== "easy") {
-    input.special = true;
   }
 
   return input;

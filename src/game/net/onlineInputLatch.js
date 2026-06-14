@@ -1,23 +1,26 @@
-const EDGE_INPUTS = ["up", "jump", "light", "heavy", "special", "dodge"];
-const DEFAULT_LATCH_MS = 50;
+const EDGE_INPUTS = ["jump", "light", "heavy"];
+const LIVE_INPUTS = ["left", "right", "down"];
+const LATCH_MS = 120;
 
-export function createOnlineInputLatch(latchMs = DEFAULT_LATCH_MS) {
-  const remainingMs = Object.fromEntries(EDGE_INPUTS.map((key) => [key, 0]));
+export function createOnlineInputLatch() {
+  const timers = Object.fromEntries(EDGE_INPUTS.map((key) => [key, 0]));
 
   return {
-    read(input = {}, deltaMs = 0) {
-      const output = { ...input };
-
+    read(input, dtMs) {
       for (const key of EDGE_INPUTS) {
-        if (input[key]) {
-          remainingMs[key] = latchMs;
-        }
-
-        output[key] = remainingMs[key] > 0;
-        remainingMs[key] = Math.max(0, remainingMs[key] - deltaMs);
+        if (input[key]) timers[key] = LATCH_MS;
       }
 
-      return output;
+      const latched = {};
+      for (const key of LIVE_INPUTS) {
+        latched[key] = Boolean(input[key]);
+      }
+      for (const key of EDGE_INPUTS) {
+        latched[key] = timers[key] > 0;
+        timers[key] = Math.max(0, timers[key] - dtMs);
+      }
+
+      return latched;
     }
   };
 }
