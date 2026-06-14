@@ -20,14 +20,14 @@ describe("animationKey", () => {
     expect(FIGHTER_ANIMS).not.toHaveProperty("shield");
   });
 
-  it("uses the approved 9-frame minimal sprite order", () => {
+  it("uses the approved 11-frame minimal sprite order", () => {
     expect(FIGHTER_ANIMS).toMatchObject({
       idle: [0, 1],
-      run: [2, 3],
-      jump: [4],
-      light: [5],
-      dive: [6],
-      heavy: [7, 8]
+      run: [2, 3, 4, 5],
+      jump: [6],
+      light: [7],
+      dive: [8],
+      heavy: [9, 10]
     });
   });
 });
