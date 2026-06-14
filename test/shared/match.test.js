@@ -109,6 +109,31 @@ describe("match simulation", () => {
     expect(match.fighters.p1.activeAttack).toBeNull();
   });
 
+  it("requires a fresh airborne down press after holding down on the ground", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.y = STAGE.platform.y;
+    match.fighters.p1.onGround = true;
+
+    queueInput(match, "p1", { down: true });
+    stepMatch(match, 16.67);
+
+    match.fighters.p1.y = STAGE.platform.y - 120;
+    match.fighters.p1.onGround = false;
+    match.fighters.p1.velocity.y = 2;
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p1.state).not.toBe(FighterStates.DiveAttack);
+    expect(match.fighters.p1.activeAttack).toBeNull();
+
+    queueInput(match, "p1", {});
+    stepMatch(match, 16.67);
+    queueInput(match, "p1", { down: true });
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p1.state).toBe(FighterStates.DiveAttack);
+    expect(match.fighters.p1.activeAttack).toMatchObject({ key: "dive", hasHit: false });
+  });
+
   it("applies damage when a dive attack overlaps below the attacker", () => {
     const match = createMatch("cpu");
     match.fighters.p1.x = 500;

@@ -68,10 +68,14 @@ export function stepMatch(match, dtMs) {
 }
 
 function tryStartAttack(fighter, input) {
-  const attackKey = input.light ? "light" : input.heavy ? "heavy" : input.down && !fighter.onGround ? "dive" : null;
-  const attackPressed = attackKey !== null;
-  const freshAttackPress = attackPressed && !fighter.attackHeld;
-  fighter.attackHeld = attackPressed;
+  const downPressed = Boolean(input.down);
+  const freshDownPress = downPressed && !fighter.downHeld;
+  fighter.downHeld = downPressed;
+
+  const attackKey = input.light ? "light" : input.heavy ? "heavy" : freshDownPress && !fighter.onGround ? "dive" : null;
+  const lightOrHeavyPressed = Boolean(input.light || input.heavy);
+  const freshAttackPress = attackKey === "dive" || (lightOrHeavyPressed && !fighter.attackHeld);
+  fighter.attackHeld = lightOrHeavyPressed;
 
   if (!freshAttackPress || fighter.attackCooldownMs > 0 || !canControl(fighter)) {
     return;
