@@ -53,6 +53,18 @@ describe("CPU input selection", () => {
     expect(releaseInput.light || releaseInput.heavy).toBe(false);
   });
 
+  it("uses heavy at close range on hard attack pulses", () => {
+    const match = createMatch("cpu");
+    match.fighters.p1.x = 600;
+    match.fighters.p2.x = 650;
+    match.elapsedMs = 240;
+
+    const input = chooseCpuInput(match, "p2", "hard");
+
+    expect(input.heavy).toBe(true);
+    expect(input.light).toBe(false);
+  });
+
   it("jumps while recovering below the platform", () => {
     const match = createMatch("cpu");
     match.fighters.p2.y = 650;

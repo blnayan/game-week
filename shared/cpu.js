@@ -22,7 +22,8 @@ export function chooseCpuInput(match, cpuId = "p2", difficulty = "normal") {
   const dx = player.x - cpu.x;
   const dy = player.y - cpu.y;
   const distance = Math.abs(dx);
-  const shouldPulse = Math.floor((match.elapsedMs ?? 0) / PULSE_MS) % 2 === 0;
+  const pulseWindow = Math.floor((match.elapsedMs ?? 0) / PULSE_MS);
+  const shouldPulse = pulseWindow % 2 === 0;
 
   if (cpu.y > STAGE.platform.y + 80) {
     input.jump = shouldPulse;
@@ -41,7 +42,7 @@ export function chooseCpuInput(match, cpuId = "p2", difficulty = "normal") {
 
   const canAttack = (cpu.attackCooldownMs ?? 0) === 0 && shouldPulse;
 
-  if (canAttack && profile.heavyRange > 0 && distance > profile.lightRange && distance <= profile.heavyRange) {
+  if (canAttack && profile.heavyRange > 0 && distance <= profile.heavyRange && pulseWindow % 4 === 2) {
     input.heavy = true;
   } else if (canAttack && distance <= profile.lightRange) {
     input.light = true;
