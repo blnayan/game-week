@@ -4,7 +4,7 @@
 
 **Goal:** Simplify the fighter controls to `A/D`, `Space`, `J`, `K`, and airborne `S`, add a real dive attack, and replace each fighter sheet with an 11-frame 128x128 sheet that keeps the character body near the current visible size.
 
-**Architecture:** Keep the existing shared simulation boundary: `shared/` owns gameplay state, attacks, CPU, and match stepping; Phaser code maps keyboard input and renders shared state. Remove player-facing up/special/dodge/shield behavior from shared combat and rendering, but keep lifecycle states such as hitstun, launched, respawn, KO, and victory. Generate committed PNG fighter sheets deterministically from a Node script so the art is reproducible.
+**Architecture:** Keep the existing shared simulation boundary: `shared/` owns gameplay state, attacks, CPU, and match stepping; Phaser code maps keyboard input and renders shared state. Remove player-facing up/special/dodge/shield behavior from shared combat and rendering, but keep lifecycle states such as hitstun, launched, respawn, KO, and victory. Use AI-generated raster sprite art for the fighter poses, then commit exact 1408x128 PNG sheets after mechanical post-processing and validation.
 
 **Tech Stack:** JavaScript ES modules, Vitest, Phaser 3, Node built-ins (`fs`, `path`, `zlib`), PNG assets under `public/assets/fighters/`.
 
@@ -27,7 +27,8 @@
 - Modify `src/game/render/assetManifest.js`: loads 128x128 sheets and 11-frame animation definitions.
 - Modify `src/game/render/animationMap.test.js`: add this focused unit test file for state-to-animation mapping.
 - Modify `src/game/render/animationMap.js`: maps `DiveAttack` to `dive`, removes old public move mappings.
-- Create `scripts/generate-fighter-sprites.mjs`: deterministic 11-frame sprite generator.
+- Create `tmp/ai-fighter-sprites/`: temporary AI sprite source exports and post-processing workspace, not committed.
+- Create `scripts/validate-fighter-sprites.mjs`: PNG dimension and transparency validator only.
 - Modify `public/assets/fighters/blue.png`, `public/assets/fighters/orange.png`, `public/assets/fighters/violet.png`: generated 1408x128 sheets.
 - Modify `src/game/render/renderScale.test.js` and `src/game/render/renderScale.js`: keep apparent fighter size stable after moving to 128px frames.
 - Modify `src/game/scenes/MatchScene.js`: anchor sprites to an internal frame baseline.
@@ -925,266 +926,120 @@ git add src/game/render/assetManifest.test.js src/game/render/assetManifest.js s
 git commit -m "feat: map minimal fighter animations"
 ```
 
-## Task 5: Deterministic 11-Frame Fighter Sheets
+## Task 5: AI-Generated 11-Frame Fighter Sheets
 
 **Files:**
-- Create: `scripts/generate-fighter-sprites.mjs`
+- Create: `scripts/validate-fighter-sprites.mjs`
 - Modify: `public/assets/fighters/blue.png`
 - Modify: `public/assets/fighters/orange.png`
 - Modify: `public/assets/fighters/violet.png`
 
-- [ ] **Step 1: Create the sprite generator**
+- [ ] **Step 1: Generate AI source sprite sheets with the built-in image tool**
 
-Create `scripts/generate-fighter-sprites.mjs` with this structure:
+Use the `imagegen` skill with the built-in `image_gen` tool. Generate one AI image per fighter: blue, orange, and violet. Prompt each image as a complete 11-pose horizontal sprite source sheet on a flat chroma-key background.
+
+Use this base prompt for each fighter, changing only the character direction and accent color:
+
+```text
+Use case: stylized-concept
+Asset type: pixel-art fighting game sprite sheet source
+Primary request: Create a side-view pixel-art sprite sheet source for one original platform-fighter character, arranged as exactly 11 evenly spaced poses in one horizontal row on a perfectly flat solid #00ff00 chroma-key background for background removal.
+Character scale: each character body should be about 76 px tall after final resizing, with extra transparent room inside a 128x128 game frame.
+Pose order, left to right: idle fighting stance A, idle fighting stance B, run contact left, run passing pose, run contact right, run passing pose, jump from fighting stance, light attack from idle stance, downward dive attack from jump pose, heavy attack windup, heavy attack strike.
+Style/medium: crisp original pixel-art game sprites, chunky readable silhouette, limited color palette, strong outline, no antialiasing blur, no text, no labels, no frame numbers.
+Composition/framing: single horizontal strip, full body visible in every pose, side-facing toward screen right, consistent character proportions and costume across all poses, generous padding around each pose.
+Constraints: background must be one uniform #00ff00 with no shadows, gradients, texture, floor plane, or lighting variation; do not use #00ff00 anywhere in the character; no watermark.
+Avoid: photorealism, 3D render, painterly blur, text, labels, UI, weapons that extend outside the pose area.
+```
+
+Character-specific directions:
+
+- `blue`: agile martial artist with dark hair, red headband tails, red gloves, red shoes, dark sleeveless gi, blue accent palette.
+- `orange`: bulky power fighter with broad shoulders, big gauntlets and boots, orange/gold accent palette, heavy stance.
+- `violet`: slim agile duelist/ninja with scarf or sash motion, sharp angled limbs, violet accent palette, fast stance.
+
+Save the generated source images under `tmp/ai-fighter-sprites/` for local processing. These source files are temporary and should not be committed unless needed for debugging.
+
+- [ ] **Step 2: Remove chroma-key backgrounds and assemble exact PNG sheets**
+
+Use local mechanical post-processing only. The post-processing may remove the chroma key, crop or slice the 11 generated poses, resize each pose into a 128x128 frame, align feet to baseline 108, and assemble the final sheets. Do not draw the character poses with deterministic geometry code.
+
+The output files must be:
+
+- `public/assets/fighters/blue.png`
+- `public/assets/fighters/orange.png`
+- `public/assets/fighters/violet.png`
+
+Each output must be a transparent PNG exactly 1408px wide by 128px high.
+
+Use the installed chroma-key helper for background removal when applicable:
+
+```bash
+python "${CODEX_HOME:-$HOME/.codex}/skills/.system/imagegen/scripts/remove_chroma_key.py" \
+  --input tmp/ai-fighter-sprites/<source>.png \
+  --out tmp/ai-fighter-sprites/<source>-alpha.png \
+  --auto-key border \
+  --soft-matte \
+  --transparent-threshold 12 \
+  --opaque-threshold 220 \
+  --despill
+```
+
+If the generated strip cannot be cleanly sliced into 11 poses, regenerate that fighter once with a stricter prompt before doing manual correction.
+
+- [ ] **Step 3: Create the sprite validator**
+
+Create `scripts/validate-fighter-sprites.mjs`:
 
 ```js
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { deflateSync } from "node:zlib";
+import { readFileSync } from "node:fs";
 
-const FRAME_WIDTH = 128;
-const FRAME_HEIGHT = 128;
-const FRAME_COUNT = 11;
-const SHEET_WIDTH = FRAME_WIDTH * FRAME_COUNT;
-const BASELINE = 108;
-const OUT_DIR = resolve("public/assets/fighters");
-
-const FRAMES = [
-  "idleA",
-  "idleB",
-  "runA",
-  "runB",
-  "runC",
-  "runD",
-  "jump",
-  "light",
-  "dive",
-  "heavyWind",
-  "heavyHit"
-];
-
-const PALETTES = {
-  blue: {
-    outline: "#151013",
-    hair: "#2d2a2d",
-    skin: "#d8894c",
-    cloth: "#222124",
-    shirt: "#ded5c8",
-    accent: "#d22a20",
-    sole: "#f1eee8",
-    effect: "#ff6a3d",
-    width: 24,
-    shoulders: 34
-  },
-  orange: {
-    outline: "#17100c",
-    hair: "#3a2218",
-    skin: "#b96531",
-    cloth: "#3a2c22",
-    shirt: "#f0c15d",
-    accent: "#f07a24",
-    sole: "#f7d86b",
-    effect: "#ffd25a",
-    width: 30,
-    shoulders: 42
-  },
-  violet: {
-    outline: "#101023",
-    hair: "#221f47",
-    skin: "#c98264",
-    cloth: "#241b3b",
-    shirt: "#d8d3f2",
-    accent: "#9a66ff",
-    sole: "#c9b8ff",
-    effect: "#d36dff",
-    width: 21,
-    shoulders: 30
-  }
+const EXPECTED = {
+  width: 1408,
+  height: 128,
+  signature: "89504e470d0a1a0a"
 };
 
-function hexToRgba(hex) {
-  const value = hex.slice(1);
-  return [
-    Number.parseInt(value.slice(0, 2), 16),
-    Number.parseInt(value.slice(2, 4), 16),
-    Number.parseInt(value.slice(4, 6), 16),
-    255
-  ];
-}
+for (const name of ["blue", "orange", "violet"]) {
+  const path = `public/assets/fighters/${name}.png`;
+  const png = readFileSync(path);
+  const signature = png.subarray(0, 8).toString("hex");
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  const colorType = png[25];
 
-function crc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc ^= byte;
-    for (let i = 0; i < 8; i += 1) {
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
+  if (signature !== EXPECTED.signature) {
+    throw new Error(`${path} is not a PNG file`);
   }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function chunk(type, data) {
-  const typeBuffer = Buffer.from(type);
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])));
-  return Buffer.concat([length, typeBuffer, data, crc]);
-}
-
-function encodePng(width, height, pixels) {
-  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
-
-  const scanlines = Buffer.alloc((width * 4 + 1) * height);
-  for (let y = 0; y < height; y += 1) {
-    const rowStart = y * (width * 4 + 1);
-    scanlines[rowStart] = 0;
-    pixels.copy(scanlines, rowStart + 1, y * width * 4, (y + 1) * width * 4);
+  if (width !== EXPECTED.width || height !== EXPECTED.height) {
+    throw new Error(`${path} must be ${EXPECTED.width}x${EXPECTED.height}, got ${width}x${height}`);
+  }
+  if (colorType !== 6 && colorType !== 4) {
+    throw new Error(`${path} must include an alpha channel, got PNG color type ${colorType}`);
   }
 
-  return Buffer.concat([
-    signature,
-    chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(scanlines, { level: 9 })),
-    chunk("IEND", Buffer.alloc(0))
-  ]);
-}
-
-function setPixel(canvas, x, y, color) {
-  if (x < 0 || y < 0 || x >= SHEET_WIDTH || y >= FRAME_HEIGHT) return;
-  const offset = (Math.floor(y) * SHEET_WIDTH + Math.floor(x)) * 4;
-  const rgba = hexToRgba(color);
-  canvas[offset] = rgba[0];
-  canvas[offset + 1] = rgba[1];
-  canvas[offset + 2] = rgba[2];
-  canvas[offset + 3] = rgba[3];
-}
-
-function rect(canvas, x, y, width, height, color) {
-  for (let py = Math.floor(y); py < Math.floor(y + height); py += 1) {
-    for (let px = Math.floor(x); px < Math.floor(x + width); px += 1) {
-      setPixel(canvas, px, py, color);
-    }
-  }
-}
-
-function line(canvas, x0, y0, x1, y1, thickness, color) {
-  const dx = x1 - x0;
-  const dy = y1 - y0;
-  const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
-  for (let i = 0; i <= steps; i += 1) {
-    const x = x0 + (dx * i) / steps;
-    const y = y0 + (dy * i) / steps;
-    rect(canvas, x - thickness / 2, y - thickness / 2, thickness, thickness, color);
-  }
-}
-
-function drawFighter(canvas, frameIndex, pose, palette) {
-  const ox = frameIndex * FRAME_WIDTH;
-  const cx = ox + 64;
-  const footY = BASELINE;
-  const idleBob = pose === "idleB" ? -2 : 0;
-  const runPhase = ["runA", "runB", "runC", "runD"].indexOf(pose);
-  const isRun = runPhase >= 0;
-  const isJump = pose === "jump";
-  const isDive = pose === "dive";
-  const isLight = pose === "light";
-  const isHeavyWind = pose === "heavyWind";
-  const isHeavyHit = pose === "heavyHit";
-
-  const bodyTop = footY - 60 + idleBob + (isJump ? -6 : 0) + (isDive ? 4 : 0);
-  const bodyLean = isRun ? [-5, -2, 5, 2][runPhase] : isDive ? 12 : isHeavyWind ? -8 : isHeavyHit ? 8 : 0;
-  const bodyWidth = palette.width;
-  const shoulders = palette.shoulders;
-
-  rect(canvas, cx - shoulders / 2 + bodyLean - 3, bodyTop + 16, shoulders + 6, 28, palette.outline);
-  rect(canvas, cx - bodyWidth / 2 + bodyLean, bodyTop + 18, bodyWidth, 32, palette.cloth);
-  rect(canvas, cx - bodyWidth / 2 + bodyLean + 5, bodyTop + 22, bodyWidth - 10, 14, palette.shirt);
-  rect(canvas, cx - 12 + bodyLean, bodyTop - 6, 24, 22, palette.outline);
-  rect(canvas, cx - 9 + bodyLean, bodyTop - 3, 18, 16, palette.skin);
-  rect(canvas, cx - 13 + bodyLean, bodyTop - 10, 26, 10, palette.hair);
-
-  const leftLegX = cx - 9 + bodyLean;
-  const rightLegX = cx + 8 + bodyLean;
-  const legSwing = isRun ? [-14, 4, 14, -4][runPhase] : 0;
-  const rearSwing = -legSwing;
-  line(canvas, leftLegX, bodyTop + 48, leftLegX - legSwing, footY - 8, 8, palette.outline);
-  line(canvas, rightLegX, bodyTop + 48, rightLegX - rearSwing, footY - 8, 8, palette.outline);
-  line(canvas, leftLegX, bodyTop + 48, leftLegX - legSwing, footY - 8, 5, palette.cloth);
-  line(canvas, rightLegX, bodyTop + 48, rightLegX - rearSwing, footY - 8, 5, palette.cloth);
-  rect(canvas, leftLegX - legSwing - 8, footY - 8, 16, 6, palette.sole);
-  rect(canvas, rightLegX - rearSwing - 8, footY - 8, 16, 6, palette.sole);
-
-  const armY = bodyTop + 24;
-  const leftHand = isHeavyWind ? [cx - 42, armY + 18] : isLight || isHeavyHit ? [cx + 52, armY + 2] : isDive ? [cx + 24, armY + 42] : [cx - 26, armY + 16];
-  const rightHand = isHeavyWind ? [cx + 28, armY - 2] : isLight || isHeavyHit ? [cx + 42, armY - 8] : isDive ? [cx + 38, armY + 34] : [cx + 25, armY + 14];
-  line(canvas, cx - shoulders / 2 + bodyLean, armY, leftHand[0], leftHand[1], 7, palette.outline);
-  line(canvas, cx + shoulders / 2 + bodyLean, armY, rightHand[0], rightHand[1], 7, palette.outline);
-  line(canvas, cx - shoulders / 2 + bodyLean, armY, leftHand[0], leftHand[1], 4, palette.skin);
-  line(canvas, cx + shoulders / 2 + bodyLean, armY, rightHand[0], rightHand[1], 4, palette.skin);
-  rect(canvas, leftHand[0] - 5, leftHand[1] - 5, 10, 10, palette.accent);
-  rect(canvas, rightHand[0] - 5, rightHand[1] - 5, 10, 10, palette.accent);
-
-  if (isLight) {
-    rect(canvas, cx + 48, armY - 12, 30, 8, palette.effect);
-  }
-  if (isHeavyHit) {
-    rect(canvas, cx + 44, armY - 18, 44, 14, palette.effect);
-    rect(canvas, cx + 82, armY - 26, 10, 30, palette.effect);
-  }
-  if (isDive) {
-    rect(canvas, cx + 14, footY - 4, 24, 16, palette.effect);
-    rect(canvas, cx + 20, footY + 10, 12, 10, palette.effect);
-  }
-}
-
-function generateSheet(name, palette) {
-  const canvas = Buffer.alloc(SHEET_WIDTH * FRAME_HEIGHT * 4);
-  FRAMES.forEach((pose, frameIndex) => drawFighter(canvas, frameIndex, pose, palette));
-  mkdirSync(OUT_DIR, { recursive: true });
-  writeFileSync(resolve(OUT_DIR, `${name}.png`), encodePng(SHEET_WIDTH, FRAME_HEIGHT, canvas));
-}
-
-for (const [name, palette] of Object.entries(PALETTES)) {
-  generateSheet(name, palette);
+  console.log(`${path}: ${width}x${height}, alpha color type ${colorType}`);
 }
 ```
 
-- [ ] **Step 2: Generate the fighter sheets**
+- [ ] **Step 4: Validate generated assets and render tests**
 
 Run:
 
 ```bash
-node scripts/generate-fighter-sprites.mjs
-```
-
-Expected: `public/assets/fighters/blue.png`, `orange.png`, and `violet.png` are rewritten as 1408x128 PNG files.
-
-- [ ] **Step 3: Run asset manifest tests**
-
-Run:
-
-```bash
+node scripts/validate-fighter-sprites.mjs
 npm test -- src/game/render/assetManifest.test.js src/game/render/animationMap.test.js src/game/render/renderScale.test.js
 ```
 
-Expected: PASS.
+Expected: validator reports all three fighter sheets as 1408x128 PNGs with alpha, and render tests pass.
 
-- [ ] **Step 4: Commit generated sprites**
+- [ ] **Step 5: Commit AI-generated sprites**
 
 Run:
 
 ```bash
-git add scripts/generate-fighter-sprites.mjs public/assets/fighters/blue.png public/assets/fighters/orange.png public/assets/fighters/violet.png
-git commit -m "feat: generate minimal fighter sprites"
+git add scripts/validate-fighter-sprites.mjs public/assets/fighters/blue.png public/assets/fighters/orange.png public/assets/fighters/violet.png
+git commit -m "feat: add ai-generated fighter sprites"
 ```
 
 ## Task 6: Menu Text, README, And Full Verification

@@ -90,7 +90,7 @@ The three committed fighter files remain:
 - `public/assets/fighters/orange.png`
 - `public/assets/fighters/violet.png`
 
-The sheets should be generated deterministically by a repo script so future changes can reproduce the assets.
+The sheets should use AI-generated raster sprite art. Local scripts may be used only for mechanical post-processing such as removing a chroma-key background, resizing, cropping, assembling frames into the exact 1408x128 sheet, and validating PNG dimensions. The character poses themselves should not be drawn by deterministic geometry code.
 
 ## Minimal Animation Coverage
 
