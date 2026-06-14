@@ -13,6 +13,23 @@ vi.mock("phaser", () => ({
 const { createKeyboardInput } = await import("./inputMapper.js");
 
 describe("createKeyboardInput", () => {
+  it("registers the simplified key bindings plus removed key sentinels", () => {
+    const { scene } = createReader();
+
+    expect(scene.input.keyboard.addKeys).toHaveBeenCalledWith({
+      left: "A",
+      right: "D",
+      down: "S",
+      jump: "SPACE",
+      light: "J",
+      heavy: "K",
+      removedUp: "W",
+      removedSpecial: "L",
+      removedDodge: "SHIFT",
+      removedShield: "I"
+    });
+  });
+
   it("maps A and D to held horizontal movement", () => {
     const { keys, readInput } = createReader();
     keys.left.isDown = true;
@@ -100,6 +117,7 @@ function createReader() {
 
   return {
     keys,
+    scene,
     readInput: createKeyboardInput(scene)
   };
 }
