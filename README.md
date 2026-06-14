@@ -23,14 +23,10 @@ Open `http://localhost:3000`.
 ## Controls
 
 - `A` / `D`: move
-- `W` or `Space`: jump / double jump
-- `S`: fast fall
+- `Space`: jump / double jump
 - `J`: light attack
-- `W` + `J`: up attack
 - `K`: heavy attack
-- `L`: special
-- `Shift`: dodge
-- `I`: shield-lite
+- `S`: dive attack while airborne
 
 ## Modes
 
@@ -50,7 +46,7 @@ Socket.IO rooms map directly to match rooms. A room has two player slots, one ma
 
 ## CPU Design
 
-The CPU chooses compact input packets from match state. It approaches when far, attacks when close, uses special at medium range on higher difficulties, and jumps back toward the platform when recovering.
+The CPU chooses compact input packets from match state. It approaches when far, uses light and heavy attacks in range, dives when airborne above the opponent, and jumps back toward the platform when recovering.
 
 ## Pixel Art Asset Pipeline
 

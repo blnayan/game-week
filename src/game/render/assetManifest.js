@@ -5,16 +5,16 @@ export const FIGHTER_FRAME_BASELINE = 108;
 
 export const FIGHTER_ANIMS = Object.freeze({
   idle: [0, 1],
-  run: [2, 3, 4, 5],
-  jump: [6],
-  fall: [6],
-  light: [7],
-  dive: [8],
-  heavy: [9, 10],
-  hurt: [10],
-  launched: [6],
-  respawn: [6, 0, 1],
-  ko: [8],
+  run: [2, 3],
+  jump: [4],
+  fall: [4],
+  light: [5],
+  dive: [6],
+  heavy: [7, 8],
+  hurt: [8],
+  launched: [4],
+  respawn: [4, 0, 1],
+  ko: [6],
   victory: [0, 1]
 });
 

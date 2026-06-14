@@ -54,7 +54,7 @@ export class MenuScene extends Phaser.Scene {
       strokeThickness: 4
     });
 
-    this.add.text(76, 556, "A/D move  W/SPACE jump  S fast-fall  J light  W+J up  K heavy  L special  SHIFT dodge  I shield", {
+    this.add.text(76, 556, "A/D move  SPACE jump/double jump  J light  K heavy  S dive attack while airborne", {
       fontFamily: "monospace",
       fontSize: "18px",
       color: "#f9f5d7"
