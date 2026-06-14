@@ -1,6 +1,7 @@
 export const FIGHTER_SHEETS = ["blue", "orange", "violet"];
-export const FIGHTER_FRAME_WIDTH = 96;
-export const FIGHTER_FRAME_HEIGHT = 80;
+export const FIGHTER_FRAME_WIDTH = 128;
+export const FIGHTER_FRAME_HEIGHT = 128;
+export const FIGHTER_FRAME_BASELINE = 116;
 
 export const FIGHTER_ANIMS = Object.freeze({
   idle: [0, 1, 0, 2],

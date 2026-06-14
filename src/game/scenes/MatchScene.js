@@ -5,6 +5,7 @@ import { createKeyboardInput } from "../input/inputMapper.js";
 import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
 import { createSocketClient } from "@game/net/socketClient.js";
 import { animationKey } from "../render/animationMap.js";
+import { FIGHTER_FRAME_BASELINE, FIGHTER_FRAME_HEIGHT } from "../render/assetManifest.js";
 import { EFFECT_RENDER_SCALE, FIGHTER_RENDER_SCALE } from "../render/renderScale.js";
 
 const WIDTH = 1280;
@@ -121,7 +122,7 @@ export class MatchScene extends Phaser.Scene {
 
   createFighterSprite(fighter) {
     const sprite = this.add.sprite(fighter.x, fighter.y, `fighter:${fighter.palette}`, 0);
-    sprite.setOrigin(0.5, 1);
+    sprite.setOrigin(0.5, FIGHTER_FRAME_BASELINE / FIGHTER_FRAME_HEIGHT);
     sprite.setScale(FIGHTER_RENDER_SCALE);
     sprite.play(animationKey(fighter));
     return sprite;

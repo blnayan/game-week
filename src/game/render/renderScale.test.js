@@ -3,6 +3,6 @@ import { FIGHTER_RENDER_SCALE } from "./renderScale.js";
 
 describe("render scale", () => {
   it("keeps fighters compact enough for the floating arena", () => {
-    expect(FIGHTER_RENDER_SCALE).toBe(1.5);
+    expect(FIGHTER_RENDER_SCALE).toBe(1.15);
   });
 });
