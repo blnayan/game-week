@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { loadGameAssets } from "./assetManifest.js";
+import { readFileSync } from "node:fs";
+import {
+  FIGHTER_FRAME_HEIGHT,
+  FIGHTER_FRAME_WIDTH,
+  FIGHTER_SHEETS,
+  loadGameAssets
+} from "./assetManifest.js";
+
+function readPngSize(path) {
+  const png = readFileSync(path);
+  return {
+    width: png.readUInt32BE(16),
+    height: png.readUInt32BE(20)
+  };
+}
 
 describe("asset manifest", () => {
   it("loads the cosmic floating arena background", () => {
@@ -14,5 +28,27 @@ describe("asset manifest", () => {
     loadGameAssets(scene);
 
     expect(images.get("stage:cosmic-floating")).toBe("/assets/stage/cosmic-floating-arena.png");
+  });
+
+  it("loads fighters with wide enough cells for attack animations", () => {
+    const spritesheets = new Map();
+    const scene = {
+      load: {
+        image: () => {},
+        spritesheet: (key, path, options) => spritesheets.set(key, { path, options })
+      }
+    };
+
+    loadGameAssets(scene);
+
+    for (const name of FIGHTER_SHEETS) {
+      const sheet = spritesheets.get(`fighter:${name}`);
+      expect(sheet.options).toMatchObject({
+        frameWidth: 96,
+        frameHeight: 80
+      });
+      expect(readPngSize(`public${sheet.path}`).width).toBe(FIGHTER_FRAME_WIDTH * 38);
+      expect(readPngSize(`public${sheet.path}`).height).toBe(FIGHTER_FRAME_HEIGHT);
+    }
   });
 });

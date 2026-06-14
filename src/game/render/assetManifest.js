@@ -1,4 +1,6 @@
 export const FIGHTER_SHEETS = ["blue", "orange", "violet"];
+export const FIGHTER_FRAME_WIDTH = 96;
+export const FIGHTER_FRAME_HEIGHT = 80;
 
 export const FIGHTER_ANIMS = Object.freeze({
   idle: [0, 1, 0, 2],
@@ -33,8 +35,8 @@ const LOOPING_FIGHTER_ANIMS = new Set(["idle", "run", "victory", "shield"]);
 export function loadGameAssets(scene) {
   for (const name of FIGHTER_SHEETS) {
     scene.load.spritesheet(`fighter:${name}`, `/assets/fighters/${name}.png`, {
-      frameWidth: 64,
-      frameHeight: 80
+      frameWidth: FIGHTER_FRAME_WIDTH,
+      frameHeight: FIGHTER_FRAME_HEIGHT
     });
   }
 
