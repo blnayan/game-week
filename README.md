@@ -20,6 +20,15 @@ npm start
 
 Open `http://localhost:3000`.
 
+## Docker
+
+```bash
+docker build -t pixel-arena-fighter .
+docker run --rm -p 3000:3000 pixel-arena-fighter
+```
+
+Open `http://localhost:3000`.
+
 ## Controls
 
 - `A` / `D`: move
@@ -59,3 +68,14 @@ Match results award XP in local storage. Reaching 300 XP unlocks the violet figh
 ## AI-Assisted Learning Notes
 
 The project followed a browser-game pathway from the Game Week brief. AI was used to compare Phaser and raw Canvas, design the network model, define a shared simulation boundary, and plan the state machine so CPU mode and online mode do not diverge.
+
+See [docs/learning-log.md](docs/learning-log.md) for the Brainlift-style progress log and [docs/ai-methodology.md](docs/ai-methodology.md) for the AI learning and development methodology.
+
+## Submission Status
+
+- Working game: complete and deployed on a VPS.
+- Multiplayer: complete and stress tested; evidence was posted on GitLab.
+- Progression: complete through local XP and palette unlocks.
+- Docker: verified through the VPS deployment.
+- Repository: published to GitLab.
+- Demo video: planned as a separate submission artifact.
