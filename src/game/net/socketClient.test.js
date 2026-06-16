@@ -110,6 +110,21 @@ describe("createSocketClient", () => {
     expect(handler).toHaveBeenCalledWith(rematchStatus);
   });
 
+  it("allows gameplay screens to subscribe only to fresh room statuses", () => {
+    const client = createSocketClient({ ackTimeoutMs: 100 });
+    const status = { message: "p1 started a rematch", players: 2, roomCode: "ROOM1" };
+    const handler = vi.fn();
+
+    fakeSocket.emitServer("room:status", status);
+    client.onStatus(handler, { replayLatest: false });
+
+    expect(handler).not.toHaveBeenCalled();
+
+    fakeSocket.emitServer("room:status", { message: "Fight", players: 2, roomCode: "ROOM1" });
+
+    expect(handler).toHaveBeenCalledWith({ message: "Fight", players: 2, roomCode: "ROOM1" });
+  });
+
   it("clears pending ack timers and listeners when disconnected mid-request", async () => {
     const client = createSocketClient({ ackTimeoutMs: 100 });
     const pending = client.joinRoom("ROOM1");

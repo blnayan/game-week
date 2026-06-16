@@ -64,9 +64,9 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
       socket.on("match:snapshot", handler);
       return () => socket.off("match:snapshot", handler);
     },
-    onStatus(handler) {
+    onStatus(handler, { replayLatest = true } = {}) {
       statusHandlers.add(handler);
-      if (latestStatus) handler(latestStatus);
+      if (replayLatest && latestStatus) handler(latestStatus);
       return () => statusHandlers.delete(handler);
     },
     disconnect

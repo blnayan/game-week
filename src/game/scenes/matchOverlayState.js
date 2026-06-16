@@ -50,3 +50,11 @@ export function getOnlineOverlayState(status, hasShareLink = false) {
 
   return null;
 }
+
+export function isActiveOnlineMatchSnapshot(snapshot = {}) {
+  return snapshot.status === "playing" && snapshot.phase === "playing";
+}
+
+export function shouldUnlockOnlineRoundFromSnapshot(snapshot = {}, { localPaused = false } = {}) {
+  return !localPaused && isActiveOnlineMatchSnapshot(snapshot);
+}

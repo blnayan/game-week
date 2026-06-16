@@ -110,7 +110,7 @@ io.on("connection", (socket) => {
     forfeitMatch(room.match, playerId, "forfeit");
     room.phase = "complete";
     io.to(room.code).emit("room:status", { message: `${playerId} forfeited`, players: room.players.size, roomCode: room.code });
-    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
+    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
     stopRoomInterval(room);
   });
 
@@ -129,7 +129,7 @@ io.on("connection", (socket) => {
     room.rematchRequests.clear();
     sendAck(ack, rematch);
     io.to(room.code).emit("room:status", { message: `${playerId} started a rematch`, players: room.players.size, roomCode: room.code });
-    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
+    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
     startRoomCountdown(room);
   });
 
@@ -157,7 +157,7 @@ function startRoomInterval(room) {
   room.interval = setInterval(() => {
     if (room.players.size < 2 || room.phase !== "playing") return;
     stepMatch(room.match, FIXED_DT_MS);
-    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
+    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
     if (room.match.status === "complete") {
       room.phase = "complete";
       stopRoomInterval(room);
@@ -171,7 +171,7 @@ function joinRoom(socket, room, ack) {
   room.players.set(socket.id, playerId);
   sendAck(ack, { ok: true, roomCode: room.code, playerId });
   io.to(room.code).emit("room:status", { message: "Player joined", players: room.players.size, roomCode: room.code });
-  socket.emit("match:snapshot", toPublicSnapshot(room.match));
+  socket.emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
   if (room.players.size < 2) {
     io.to(room.code).emit("room:status", { message: "Waiting for opponent", players: room.players.size, roomCode: room.code });
   } else if (room.match.status === "playing" && room.phase === "waiting") {
@@ -191,7 +191,7 @@ function releaseSocketFromGameRooms(socket, exceptRoomCode = null) {
         players: removal.players,
         roomCode: removal.code
       });
-      io.to(removal.code).emit("match:snapshot", toPublicSnapshot(removal.room.match));
+      io.to(removal.code).emit("match:snapshot", toPublicSnapshot(removal.room.match, { phase: removal.room.phase }));
       stopRoomInterval(removal.room);
       deleteRoom(removal.room);
       continue;

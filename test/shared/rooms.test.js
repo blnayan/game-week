@@ -51,6 +51,22 @@ describe("room helpers", () => {
     });
   });
 
+  it("includes the server room phase in public match snapshots when provided", () => {
+    const match = {
+      status: "playing",
+      winnerId: null,
+      endReason: null,
+      elapsedMs: 0,
+      effects: [],
+      fighters: { p1: { id: "p1" }, p2: { id: "p2" } }
+    };
+
+    expect(toPublicSnapshot(match, { phase: "playing" })).toMatchObject({
+      status: "playing",
+      phase: "playing"
+    });
+  });
+
   it("normalizes malformed room code payloads without throwing", () => {
     expect(normalizeRoomCode(null)).toBe("");
     expect(normalizeRoomCode(undefined)).toBe("");

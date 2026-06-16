@@ -5,7 +5,7 @@ import { createKeyboardInput } from "../input/inputMapper.js";
 import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
 import { buildRoomLink, clearRoomCodeFromUrl, shouldClearRoomCodeAfterJoin } from "@game/net/roomLinks.js";
 import { createSocketClient } from "@game/net/socketClient.js";
-import { getOnlineOverlayState } from "./matchOverlayState.js";
+import { getOnlineOverlayState, shouldUnlockOnlineRoundFromSnapshot } from "./matchOverlayState.js";
 import { animationKey } from "../render/animationMap.js";
 import { FIGHTER_FRAME_BASELINE, FIGHTER_FRAME_HEIGHT } from "../render/assetManifest.js";
 import { EFFECT_RENDER_SCALE, FIGHTER_RENDER_SCALE } from "../render/renderScale.js";
@@ -144,11 +144,15 @@ export class MatchScene extends Phaser.Scene {
       this.updateOnlineControls(status.message);
       this.handleOnlineStatus(status);
       this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode, status: status.message });
-    });
+    }, { replayLatest: false });
     this.unsubscribeSnapshot = this.net.onSnapshot((snapshot) => {
       this.match = snapshot;
       this.renderFighters();
       this.renderEffects();
+      if (shouldUnlockOnlineRoundFromSnapshot(snapshot, { localPaused: this.localPaused })) {
+        this.roundActive = true;
+        this.hidePauseOverlay();
+      }
       this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode, status: `You are ${this.playerId}` });
 
       if (snapshot.status === "complete" && !this.resultStarted) {

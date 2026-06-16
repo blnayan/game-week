@@ -96,9 +96,10 @@ export function sendAck(ack, payload) {
   return true;
 }
 
-export function toPublicSnapshot(match) {
+export function toPublicSnapshot(match, { phase } = {}) {
   return {
     status: match.status,
+    ...(phase ? { phase } : {}),
     winnerId: match.winnerId,
     endReason: match.endReason ?? null,
     elapsedMs: Math.round(match.elapsedMs),
