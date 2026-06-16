@@ -1,8 +1,38 @@
 export function getOnlineOverlayState(status, hasShareLink = false) {
   const message = status?.message || "";
   const players = Number(status?.players || 0);
+  const phase = status?.phase;
+  const reason = status?.reason;
 
-  if (message === "Waiting for opponent" || (message === "Player joined" && players < 2)) {
+  if (reason === "disconnect" || message === "Room disconnected") {
+    return {
+      title: "Room disconnected",
+      message: "The room was closed before the match started.",
+      canResume: false,
+      canCopyInvite: false,
+      canExitRoom: true
+    };
+  }
+
+  if (phase === "paused" || status?.pausedBy) {
+    return {
+      title: "Paused",
+      message: message || (status?.pausedBy ? `${status.pausedBy} paused` : "Match paused"),
+      canResume: true,
+      canCopyInvite: false
+    };
+  }
+
+  if (phase === "countdown" || reason === "rematch") {
+    return {
+      title: "Get Ready",
+      message: "Opponent joined. Starting soon...",
+      canResume: false,
+      canCopyInvite: false
+    };
+  }
+
+  if (phase === "waiting" && players < 2) {
     return {
       title: "Waiting for opponent",
       message: "Share the invite link so another player can join.",
@@ -11,13 +41,12 @@ export function getOnlineOverlayState(status, hasShareLink = false) {
     };
   }
 
-  if (message === "Room disconnected") {
+  if (message === "Waiting for opponent" || (message === "Player joined" && players < 2)) {
     return {
-      title: "Room disconnected",
-      message: "The room was closed before the match started.",
+      title: "Waiting for opponent",
+      message: "Share the invite link so another player can join.",
       canResume: false,
-      canCopyInvite: false,
-      canExitRoom: true
+      canCopyInvite: Boolean(hasShareLink)
     };
   }
 

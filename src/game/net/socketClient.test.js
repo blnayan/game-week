@@ -36,12 +36,24 @@ describe("createSocketClient", () => {
     await expect(pending).resolves.toEqual({ ok: false, error: "network down" });
   });
 
-  it("emits a match leave command with the room code", () => {
+  it("leaves a match with acknowledgement", async () => {
+    fakeSocket.emit.mockImplementation((event, _payload, ack) => {
+      if (event === "match:leave") ack({ ok: true });
+    });
     const client = createSocketClient({ ackTimeoutMs: 100 });
 
-    client.leaveRoom("ROOM1");
+    await expect(client.leaveRoom("ROOM1")).resolves.toEqual({ ok: true });
 
-    expect(fakeSocket.emit).toHaveBeenCalledWith("match:leave", { roomCode: "ROOM1" });
+    expect(fakeSocket.emit).toHaveBeenCalledWith("match:leave", { roomCode: "ROOM1" }, expect.any(Function));
+  });
+
+  it("resolves match leave with an error when acknowledgement times out", async () => {
+    const client = createSocketClient({ ackTimeoutMs: 25 });
+    const pending = client.leaveRoom("ROOM1");
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expect(pending).resolves.toEqual({ ok: false, error: "Connection timed out" });
   });
 
   it("closes a completed online room with acknowledgement", async () => {
@@ -86,12 +98,24 @@ describe("createSocketClient", () => {
     await expect(pending).resolves.toEqual({ ok: false, error: "Connection timed out" });
   });
 
-  it("emits match pause state changes with the room code", () => {
+  it("sets match pause state with acknowledgement", async () => {
+    fakeSocket.emit.mockImplementation((event, _payload, ack) => {
+      if (event === "match:pause") ack({ ok: true });
+    });
     const client = createSocketClient({ ackTimeoutMs: 100 });
 
-    client.setPaused("ROOM1", true);
+    await expect(client.setPaused("ROOM1", true)).resolves.toEqual({ ok: true });
 
-    expect(fakeSocket.emit).toHaveBeenCalledWith("match:pause", { roomCode: "ROOM1", paused: true });
+    expect(fakeSocket.emit).toHaveBeenCalledWith("match:pause", { roomCode: "ROOM1", paused: true }, expect.any(Function));
+  });
+
+  it("resolves match pause with an error when acknowledgement times out", async () => {
+    const client = createSocketClient({ ackTimeoutMs: 25 });
+    const pending = client.setPaused("ROOM1", true);
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expect(pending).resolves.toEqual({ ok: false, error: "Connection timed out" });
   });
 
   it("replays the latest room status to result screens that subscribe after the event", () => {

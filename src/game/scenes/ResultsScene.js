@@ -7,6 +7,7 @@ import {
   getResultMenuSceneData,
   getRematchDisplayState,
   getResultStatusText,
+  isRematchStartSnapshot,
   shouldHideOnlineRematchOnStatus
 } from "./resultsState.js";
 
@@ -74,7 +75,7 @@ export class ResultsScene extends Phaser.Scene {
         }
       });
       this.unsubscribeSnapshot = data.net.onSnapshot((snapshot) => {
-        if (snapshot.status !== "playing") return;
+        if (!isRematchStartSnapshot(snapshot)) return;
         this.unsubscribeSnapshot?.();
         this.unsubscribeStatus?.();
         this.scene.start("MatchScene", getOnlineRematchSceneData({

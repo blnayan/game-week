@@ -3,14 +3,20 @@ import {
   assignPlayerId,
   canCloseRoom,
   canJoinRoom,
+  canResumeRoomPause,
+  createInputRateGuard,
   createRoomCode,
   createRematchRequestStatus,
   normalizeRoomCode,
   recordRematchRequest,
   removeSocketFromRooms,
+  shouldDeleteRoomAfterSocketRemoval,
   shouldForfeitOnDisconnect,
+  shouldResetRoomToWaitingAfterSocketRemoval,
   shouldRunRoomInterval,
+  sanitizeMatchInput,
   sendAck,
+  toPublicRoomStatus,
   toPublicSnapshot
 } from "../../shared/rooms.js";
 
@@ -64,6 +70,41 @@ describe("room helpers", () => {
     expect(toPublicSnapshot(match, { phase: "playing" })).toMatchObject({
       status: "playing",
       phase: "playing"
+    });
+  });
+
+  it("builds structured public room status", () => {
+    const room = {
+      code: "ABCDE",
+      phase: "playing",
+      match: { status: "playing" },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]]),
+      rematchRequests: new Set()
+    };
+
+    expect(toPublicRoomStatus(room, { message: "Fight", reason: "countdown" })).toEqual({
+      message: "Fight",
+      reason: "countdown",
+      roomCode: "ABCDE",
+      players: 2,
+      phase: "playing",
+      status: "playing",
+      pausedBy: null,
+      rematch: { requestedBy: null, requested: 0, required: 2 }
+    });
+  });
+
+  it("keeps complete phase and reason in forfeited public room status", () => {
+    expect(toPublicRoomStatus({
+      code: "ABCDE",
+      phase: "complete",
+      match: { status: "complete" },
+      players: new Map([["a", "p1"], ["b", "p2"]]),
+      rematchRequests: new Set()
+    }, { message: "p1 forfeited", reason: "forfeit" })).toMatchObject({
+      phase: "complete",
+      status: "complete",
+      reason: "forfeit"
     });
   });
 
@@ -153,20 +194,117 @@ describe("room helpers", () => {
   it("builds structured rematch request status for both result screens", () => {
     const room = {
       code: "ABCDE",
-      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]])
+      phase: "complete",
+      match: { status: "complete" },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]]),
+      rematchRequests: new Set(["socket-a"])
     };
     const rematch = { requested: 1, required: 2 };
 
     expect(createRematchRequestStatus(room, "p1", rematch)).toEqual({
       message: "p1 wants a rematch",
-      players: 2,
+      reason: "rematch",
       roomCode: "ABCDE",
+      players: 2,
+      phase: "complete",
+      status: "complete",
+      pausedBy: null,
       rematch: {
         requestedBy: "p1",
         requested: 1,
         required: 2
       }
     });
+  });
+
+  it("only allows the pausing player to resume a paused room", () => {
+    expect(canResumeRoomPause({ phase: "paused", pausedBy: "p1" }, "p1")).toEqual({ ok: true });
+    expect(canResumeRoomPause({ phase: "paused", pausedBy: "p1" }, "p2")).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "paused" }, "p1")).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "paused" })).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "paused", pausedBy: null }, "p1")).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "paused", pausedBy: null }, null)).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "paused", pausedBy: "p1" })).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "paused", pausedBy: "p1" }, null)).toEqual({
+      ok: false,
+      error: "Only the pausing player can resume"
+    });
+    expect(canResumeRoomPause({ phase: "playing", pausedBy: null }, "p1")).toEqual({
+      ok: false,
+      error: "Room is not paused"
+    });
+  });
+
+  it("sanitizes match inputs to known boolean control fields", () => {
+    expect(sanitizeMatchInput({
+      left: true,
+      right: false,
+      jump: true,
+      light: true,
+      heavy: false,
+      down: true,
+      up: false,
+      special: true,
+      dodge: false,
+      shield: true,
+      unknown: true,
+      nonBoolean: "true"
+    })).toEqual({
+      left: true,
+      right: false,
+      jump: true,
+      light: true,
+      heavy: false,
+      down: true,
+      up: false,
+      special: true,
+      dodge: false,
+      shield: true
+    });
+
+    expect(sanitizeMatchInput(null)).toEqual({});
+    expect(sanitizeMatchInput(["left"])).toEqual({});
+    expect(sanitizeMatchInput("left")).toEqual({});
+  });
+
+  it("rate-limits inputs by socket and reset window", () => {
+    const guard = createInputRateGuard({ limit: 2, windowMs: 1000 });
+
+    expect(guard.allow("socket-a", 1000)).toBe(true);
+    expect(guard.allow("socket-a", 1100)).toBe(true);
+    expect(guard.allow("socket-a", 1200)).toBe(false);
+    expect(guard.allow("socket-b", 1200)).toBe(true);
+    expect(guard.allow("socket-a", 2000)).toBe(true);
+  });
+
+  it("clears input rate-limit state for a socket", () => {
+    const guard = createInputRateGuard({ limit: 2, windowMs: 1000 });
+
+    expect(guard.allow("socket-a", 1000)).toBe(true);
+    expect(guard.allow("socket-a", 1100)).toBe(true);
+    expect(guard.allow("socket-a", 1200)).toBe(false);
+
+    guard.clear("socket-a");
+
+    expect(guard.allow("socket-a", 1200)).toBe(true);
   });
 
   it("rejects rematch requests when the room is gone, active, or missing an opponent", () => {
@@ -189,6 +327,27 @@ describe("room helpers", () => {
     expect(shouldForfeitOnDisconnect({ phase: "waiting", match: { status: "playing" } })).toBe(false);
     expect(shouldForfeitOnDisconnect({ phase: "countdown", match: { status: "playing" } })).toBe(false);
     expect(shouldForfeitOnDisconnect({ phase: "complete", match: { status: "complete" } })).toBe(false);
+  });
+
+  it("deletes rooms only after socket removal empties them", () => {
+    expect(shouldDeleteRoomAfterSocketRemoval({ emptied: false, room: { phase: "waiting" } })).toBe(false);
+    expect(shouldDeleteRoomAfterSocketRemoval({ emptied: true, room: { phase: "waiting" } })).toBe(true);
+  });
+
+  it("resets countdown rooms to waiting when a player remains after socket removal", () => {
+    expect(shouldResetRoomToWaitingAfterSocketRemoval({
+      emptied: false,
+      room: { phase: "countdown" }
+    })).toBe(true);
+    expect(shouldResetRoomToWaitingAfterSocketRemoval({
+      emptied: true,
+      room: { phase: "countdown" }
+    })).toBe(false);
+    expect(shouldResetRoomToWaitingAfterSocketRemoval({
+      emptied: false,
+      room: { phase: "waiting" }
+    })).toBe(false);
+    expect(shouldResetRoomToWaitingAfterSocketRemoval(null)).toBe(false);
   });
 
   it("runs room simulation intervals only during active two-player matches", () => {

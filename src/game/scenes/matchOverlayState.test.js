@@ -7,6 +7,11 @@ describe("getOnlineOverlayState", () => {
       title: "Waiting for opponent",
       canCopyInvite: true
     });
+
+    expect(getOnlineOverlayState({ phase: "waiting", players: 1, reason: "waiting", message: "any" }, true)).toMatchObject({
+      title: "Waiting for opponent",
+      canCopyInvite: true
+    });
   });
 
   it("does not show copy invite during rematch startup or countdown", () => {
@@ -18,6 +23,16 @@ describe("getOnlineOverlayState", () => {
       title: "Get Ready",
       canCopyInvite: false
     });
+
+    expect(getOnlineOverlayState({ phase: "countdown", players: 2, message: "Ready" }, true)).toMatchObject({
+      title: "Get Ready",
+      canCopyInvite: false
+    });
+
+    expect(getOnlineOverlayState({ phase: "countdown", players: 2, reason: "rematch", message: "Waiting for opponent" }, true)).toMatchObject({
+      title: "Get Ready",
+      canCopyInvite: false
+    });
   });
 
   it("shows an exit-only state when a pre-match room is disconnected", () => {
@@ -25,6 +40,29 @@ describe("getOnlineOverlayState", () => {
       title: "Room disconnected",
       canCopyInvite: false,
       canExitRoom: true
+    });
+
+    expect(getOnlineOverlayState({ reason: "disconnect", players: 1, message: "Socket closed" }, true)).toMatchObject({
+      title: "Room disconnected",
+      canExitRoom: true
+    });
+  });
+
+  it("shows a resumable pause state from structured pause fields", () => {
+    expect(getOnlineOverlayState({ phase: "paused", pausedBy: "p1", message: "Game stopped" }, false)).toMatchObject({
+      title: "Paused",
+      canResume: true
+    });
+
+    expect(getOnlineOverlayState({ phase: "paused", pausedBy: "p1", players: 2, message: "Waiting for opponent" }, true)).toMatchObject({
+      title: "Paused",
+      canResume: true,
+      canCopyInvite: false
+    });
+
+    expect(getOnlineOverlayState({ phase: "paused", pausedBy: "p1", players: 2 }, false)).toMatchObject({
+      title: "Paused",
+      message: "p1 paused"
     });
   });
 

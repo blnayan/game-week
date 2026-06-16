@@ -9,14 +9,20 @@ import {
   assignPlayerId,
   canCloseRoom,
   canJoinRoom,
+  canResumeRoomPause,
+  createInputRateGuard,
   createRoomCode,
   createRematchRequestStatus,
   normalizeRoomCode,
   recordRematchRequest,
   removeSocketFromRooms,
+  sanitizeMatchInput,
   sendAck,
+  shouldDeleteRoomAfterSocketRemoval,
   shouldForfeitOnDisconnect,
+  shouldResetRoomToWaitingAfterSocketRemoval,
   shouldRunRoomInterval,
+  toPublicRoomStatus,
   toPublicSnapshot
 } from "../shared/rooms.js";
 
@@ -30,6 +36,7 @@ const io = new Server(server, {
 const port = Number(process.env.PORT || 3000);
 const distPath = path.resolve(__dirname, "../dist");
 const rooms = new Map();
+const inputRateGuard = createInputRateGuard();
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "pixel-arena-fighter", rooms: rooms.size });
@@ -64,54 +71,75 @@ io.on("connection", (socket) => {
     const closeable = canCloseRoom(room, socket.id);
     if (!closeable.ok) return sendAck(ack, closeable);
 
-    io.to(room.code).emit("room:status", {
+    io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
       message: "Room disconnected",
-      players: Math.max(room.players.size - 1, 0),
-      roomCode: room.code
-    });
+      reason: "disconnect"
+    }));
     deleteRoom(room);
     sendAck(ack, { ok: true });
   });
 
   socket.on("match:input", (payload) => {
     const safePayload = payload && typeof payload === "object" ? payload : {};
+    if (!inputRateGuard.allow(socket.id)) return;
     const room = rooms.get(normalizeRoomCode({ code: safePayload.roomCode }));
     const playerId = room?.players.get(socket.id);
     if (!room || !playerId || room.match.status === "complete" || room.phase !== "playing") return;
-    const input = safePayload.input && typeof safePayload.input === "object" ? safePayload.input : {};
-    queueInput(room.match, playerId, input);
+    queueInput(room.match, playerId, sanitizeMatchInput(safePayload.input));
   });
 
-  socket.on("match:pause", (payload) => {
+  socket.on("match:pause", (payload, ack) => {
     const room = rooms.get(normalizeRoomCode({ code: payload?.roomCode }));
     const playerId = room?.players.get(socket.id);
-    if (!room || !playerId || room.match.status === "complete") return;
+    if (!room || !playerId) return sendAck(ack, { ok: false, error: "Room not found" });
+    if (room.match.status === "complete") return sendAck(ack, { ok: false, error: "Match is complete" });
 
     if (payload?.paused && room.phase === "playing") {
       room.phase = "paused";
+      room.pausedBy = playerId;
       stopRoomInterval(room);
-      io.to(room.code).emit("room:status", { message: `${playerId} paused`, players: room.players.size, roomCode: room.code });
+      sendAck(ack, { ok: true });
+      io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+        message: `${playerId} paused`,
+        reason: "pause"
+      }));
       return;
     }
 
     if (!payload?.paused && room.phase === "paused") {
+      const resumable = canResumeRoomPause(room, playerId);
+      if (!resumable.ok) return sendAck(ack, resumable);
+
       room.phase = "playing";
+      room.pausedBy = null;
       startRoomInterval(room);
-      io.to(room.code).emit("room:status", { message: "Fight", players: room.players.size, roomCode: room.code });
+      sendAck(ack, { ok: true });
+      io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+        message: "Fight",
+        reason: "resume"
+      }));
+      return;
     }
+
+    sendAck(ack, { ok: false, error: "Pause unavailable" });
   });
 
-  socket.on("match:leave", (payload) => {
+  socket.on("match:leave", (payload, ack) => {
     const room = rooms.get(normalizeRoomCode({ code: payload?.roomCode }));
     const playerId = room?.players.get(socket.id);
-    if (!room || !playerId || room.match.status === "complete") return;
+    if (!room || !playerId) return sendAck(ack, { ok: false, error: "Room not found" });
+    if (room.match.status === "complete") return sendAck(ack, { ok: false, error: "Match is complete" });
 
     clearRoomCountdown(room);
     forfeitMatch(room.match, playerId, "forfeit");
     room.phase = "complete";
-    io.to(room.code).emit("room:status", { message: `${playerId} forfeited`, players: room.players.size, roomCode: room.code });
+    io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+      message: `${playerId} forfeited`,
+      reason: "forfeit"
+    }));
     io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
     stopRoomInterval(room);
+    sendAck(ack, { ok: true });
   });
 
   socket.on("match:rematch", (payload, ack) => {
@@ -127,13 +155,18 @@ io.on("connection", (socket) => {
 
     room.match = createMatch("online");
     room.rematchRequests.clear();
+    room.phase = "countdown";
     sendAck(ack, rematch);
-    io.to(room.code).emit("room:status", { message: `${playerId} started a rematch`, players: room.players.size, roomCode: room.code });
+    io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+      message: `${playerId} started a rematch`,
+      reason: "rematch"
+    }));
     io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
     startRoomCountdown(room);
   });
 
   socket.on("disconnect", () => {
+    inputRateGuard.clear(socket.id);
     releaseSocketFromGameRooms(socket);
   });
 });
@@ -157,11 +190,17 @@ function startRoomInterval(room) {
   room.interval = setInterval(() => {
     if (room.players.size < 2 || room.phase !== "playing") return;
     stepMatch(room.match, FIXED_DT_MS);
-    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
     if (room.match.status === "complete") {
       room.phase = "complete";
+      io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
+      io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+        message: "Match complete",
+        reason: "complete"
+      }));
       stopRoomInterval(room);
+      return;
     }
+    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
   }, FIXED_DT_MS);
 }
 
@@ -170,10 +209,16 @@ function joinRoom(socket, room, ack) {
   const playerId = assignPlayerId(room.players, socket.id);
   room.players.set(socket.id, playerId);
   sendAck(ack, { ok: true, roomCode: room.code, playerId });
-  io.to(room.code).emit("room:status", { message: "Player joined", players: room.players.size, roomCode: room.code });
+  io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+    message: "Player joined",
+    reason: "join"
+  }));
   socket.emit("match:snapshot", toPublicSnapshot(room.match, { phase: room.phase }));
   if (room.players.size < 2) {
-    io.to(room.code).emit("room:status", { message: "Waiting for opponent", players: room.players.size, roomCode: room.code });
+    io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+      message: "Waiting for opponent",
+      reason: "waiting"
+    }));
   } else if (room.match.status === "playing" && room.phase === "waiting") {
     startRoomCountdown(room);
   }
@@ -186,11 +231,10 @@ function releaseSocketFromGameRooms(socket, exceptRoomCode = null) {
       clearRoomCountdown(removal.room);
       forfeitMatch(removal.room.match, removal.playerId, "disconnect");
       removal.room.phase = "complete";
-      io.to(removal.code).emit("room:status", {
+      io.to(removal.code).emit("room:status", toPublicRoomStatus(removal.room, {
         message: "Room disconnected",
-        players: removal.players,
-        roomCode: removal.code
-      });
+        reason: "disconnect"
+      }));
       io.to(removal.code).emit("match:snapshot", toPublicSnapshot(removal.room.match, { phase: removal.room.phase }));
       stopRoomInterval(removal.room);
       deleteRoom(removal.room);
@@ -199,9 +243,25 @@ function releaseSocketFromGameRooms(socket, exceptRoomCode = null) {
 
     socket.leave(removal.code);
     if (!removal.emptied) {
-      io.to(removal.code).emit("room:status", { message: "Room disconnected", players: removal.players, roomCode: removal.code });
+      const resetToWaiting = shouldResetRoomToWaitingAfterSocketRemoval(removal);
+      if (resetToWaiting) {
+        clearRoomCountdown(removal.room);
+        removal.room.phase = "waiting";
+      }
+      io.to(removal.code).emit("room:status", toPublicRoomStatus(removal.room, {
+        message: "Room disconnected",
+        reason: "disconnect"
+      }));
+      if (resetToWaiting) {
+        io.to(removal.code).emit("room:status", toPublicRoomStatus(removal.room, {
+          message: "Waiting for opponent",
+          reason: "waiting"
+        }));
+      }
     }
-    deleteRoom(removal.room);
+    if (shouldDeleteRoomAfterSocketRemoval(removal)) {
+      deleteRoom(removal.room);
+    }
   }
 }
 
@@ -212,7 +272,10 @@ function startRoomCountdown(room) {
   [3, 2, 1].forEach((count, index) => {
     room.countdownTimers.push(setTimeout(() => {
       if (room.players.size < 2 || room.match.status !== "playing") return;
-      io.to(room.code).emit("room:status", { message: `Starting in ${count}`, players: room.players.size, roomCode: room.code });
+      io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+        message: `Starting in ${count}`,
+        reason: "countdown"
+      }));
     }, index * 1000));
   });
 
@@ -224,7 +287,10 @@ function startRoomCountdown(room) {
 
     room.phase = "playing";
     startRoomInterval(room);
-    io.to(room.code).emit("room:status", { message: "Fight", players: room.players.size, roomCode: room.code });
+    io.to(room.code).emit("room:status", toPublicRoomStatus(room, {
+      message: "Fight",
+      reason: "countdown"
+    }));
   }, 3000));
 }
 

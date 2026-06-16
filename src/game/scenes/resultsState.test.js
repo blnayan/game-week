@@ -6,6 +6,7 @@ import {
   getRematchDisplayState,
   getResultStatusText,
   getResultRoomStatusText,
+  isRematchStartSnapshot,
   shouldHideOnlineRematchOnStatus
 } from "./resultsState.js";
 
@@ -34,6 +35,8 @@ describe("result screen state helpers", () => {
     expect(shouldHideOnlineRematchOnStatus({ message: "Room disconnected", players: 1 })).toBe(true);
     expect(shouldHideOnlineRematchOnStatus({ message: "p1 forfeited", players: 1 })).toBe(true);
     expect(shouldHideOnlineRematchOnStatus({ message: "p1 forfeited", players: 2 })).toBe(false);
+    expect(shouldHideOnlineRematchOnStatus({ reason: "disconnect", players: 1 })).toBe(true);
+    expect(shouldHideOnlineRematchOnStatus({ reason: "forfeit", players: 2 })).toBe(false);
   });
 
   it("shows mutual rematch requests differently for requester and opponent", () => {
@@ -45,6 +48,37 @@ describe("result screen state helpers", () => {
 
     expect(getResultRoomStatusText(status, { playerId: "p1", roomCode: "ABCDE" })).toBe("Waiting for opponent...");
     expect(getResultRoomStatusText(status, { playerId: "p2", roomCode: "ABCDE" })).toBe("Opponent wants a rematch");
+  });
+
+  it("keeps rematch request display based on requester after forfeit and natural wins", () => {
+    const forfeitStatus = {
+      reason: "forfeit",
+      players: 2,
+      message: "p1 forfeited",
+      rematch: { requestedBy: "p2", requested: 1, required: 2 }
+    };
+    const naturalWinStatus = {
+      reason: "stocks",
+      players: 2,
+      message: "p2 wins",
+      rematch: { requestedBy: "p2", requested: 1, required: 2 }
+    };
+
+    expect(getRematchDisplayState(forfeitStatus, { playerId: "p1", roomCode: "ABCDE" })).toMatchObject({
+      statusText: "Opponent wants a rematch",
+      opponentRequested: true
+    });
+    expect(getRematchDisplayState(naturalWinStatus, { playerId: "p2", roomCode: "ABCDE" })).toMatchObject({
+      statusText: "Waiting for opponent...",
+      opponentRequested: false
+    });
+  });
+
+  it("recognizes only active rematch-start snapshots", () => {
+    expect(isRematchStartSnapshot({ status: "playing", phase: "countdown" })).toBe(true);
+    expect(isRematchStartSnapshot({ status: "playing", phase: "playing" })).toBe(true);
+    expect(isRematchStartSnapshot({ status: "playing", phase: "complete" })).toBe(false);
+    expect(isRematchStartSnapshot({ status: "complete", phase: "complete" })).toBe(false);
   });
 
   it("keeps the rematch button label stable while notifying the opponent", () => {

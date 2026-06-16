@@ -49,7 +49,7 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
       socket.emit("match:input", { roomCode, input });
     },
     leaveRoom(roomCode) {
-      socket.emit("match:leave", { roomCode });
+      return emitWithAck(socket, "match:leave", { roomCode }, ackTimeoutMs, pendingAcks);
     },
     closeRoom(roomCode) {
       return emitWithAck(socket, "room:close", { roomCode }, ackTimeoutMs, pendingAcks);
@@ -58,7 +58,7 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
       return emitWithAck(socket, "match:rematch", { roomCode }, ackTimeoutMs, pendingAcks);
     },
     setPaused(roomCode, paused) {
-      socket.emit("match:pause", { roomCode, paused: Boolean(paused) });
+      return emitWithAck(socket, "match:pause", { roomCode, paused: Boolean(paused) }, ackTimeoutMs, pendingAcks);
     },
     onSnapshot(handler) {
       socket.on("match:snapshot", handler);

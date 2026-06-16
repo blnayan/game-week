@@ -28,7 +28,11 @@ export function getRematchDisplayState(status = {}, { playerId, roomCode } = {})
 }
 
 export function shouldHideOnlineRematchOnStatus(status = {}) {
-  return status.message === "Room disconnected" || status.players < 2;
+  return status.reason === "disconnect" || status.players < 2 || status.message === "Room disconnected";
+}
+
+export function isRematchStartSnapshot(snapshot = {}) {
+  return snapshot.status === "playing" && ["countdown", "playing"].includes(snapshot.phase);
 }
 
 export function getResultMenuSceneData() {
