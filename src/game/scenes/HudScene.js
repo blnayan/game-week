@@ -41,5 +41,6 @@ export class HudScene extends Phaser.Scene {
 function formatMode(mode = "cpu") {
   if (mode === "online-create") return "Online: Create";
   if (mode === "online-join") return "Online: Join";
+  if (mode === "online-rematch") return "Online: Rematch";
   return "CPU Battle";
 }

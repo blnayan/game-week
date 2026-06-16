@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STAGE } from "../../shared/constants.js";
 import { FighterStates } from "../../shared/fighterState.js";
-import { createMatch, queueInput, stepMatch } from "../../shared/match.js";
+import { createMatch, forfeitMatch, queueInput, stepMatch } from "../../shared/match.js";
 
 describe("match simulation", () => {
   it("applies damage and knockback when a light attack connects", () => {
@@ -29,6 +29,21 @@ describe("match simulation", () => {
     stepMatch(match, 16.67);
     expect(match.status).toBe("complete");
     expect(match.winnerId).toBe("p1");
+    expect(match.endReason).toBe("stocks");
+  });
+
+  it("ends immediately when a player forfeits", () => {
+    const match = createMatch("online");
+
+    forfeitMatch(match, "p1", "disconnect");
+
+    expect(match.status).toBe("complete");
+    expect(match.winnerId).toBe("p2");
+    expect(match.endReason).toBe("disconnect");
+    expect(match.fighters.p1.stocks).toBe(0);
+    expect(match.fighters.p1.stats.falls).toBe(1);
+    expect(match.fighters.p2.stats.kos).toBe(1);
+    expect(match.fighters.p2.state).toBe(FighterStates.Victory);
   });
 
   it.each([FighterStates.Launched, FighterStates.KO])(

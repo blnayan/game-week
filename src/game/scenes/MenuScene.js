@@ -1,18 +1,29 @@
 import Phaser from "phaser";
 import { updateRoomCodeEntry } from "../input/roomCodeEntry.js";
 import { loadProgression, selectPlayerPalette } from "../progression/progressionStore.js";
+import { getMenuButtonLayout, isPointInRect } from "./menuLayout.js";
+import { getMenuInitialRoomCode, getMenuNoticeText } from "./menuNotice.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
+const NOTICE_WIDTH = 386;
+const NOTICE_HEIGHT = 52;
+const NOTICE_MARGIN = 26;
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
     super("MenuScene");
   }
 
-  create() {
+  create(data = {}) {
     const progress = loadProgression();
     this.playerPalette = selectPlayerPalette(progress);
+    const initialRoomCode = getMenuInitialRoomCode(data);
+    if (initialRoomCode) {
+      this.scene.start("MatchScene", { mode: "online-join", roomCode: initialRoomCode });
+      return;
+    }
+
     this.joinCode = "";
     this.joinMode = false;
     this.add.image(WIDTH / 2, HEIGHT / 2, "stage:cosmic-floating").setDisplaySize(WIDTH, HEIGHT);
@@ -26,15 +37,17 @@ export class MenuScene extends Phaser.Scene {
       strokeThickness: 8
     });
 
-    this.createButton(82, 230, "CPU Battle", () => {
+    this.createNotice(getMenuNoticeText(data));
+
+    this.createButton(getMenuButtonLayout("cpu"), () => {
       this.scene.start("MatchScene", { mode: "cpu", playerPalette: this.playerPalette });
     });
 
-    this.createButton(82, 304, "Create Online Room", () => {
+    this.createButton(getMenuButtonLayout("createRoom"), () => {
       this.scene.start("MatchScene", { mode: "online-create" });
     });
 
-    this.createButton(82, 378, "Join Online Room (R)", () => {
+    this.createButton(getMenuButtonLayout("enterCode"), () => {
       this.startJoinEntry();
     });
 
@@ -62,29 +75,58 @@ export class MenuScene extends Phaser.Scene {
 
     this.input.keyboard.on("keydown", this.handleJoinKey, this);
     this.input.on("pointerdown", this.handleJoinPointerFallback, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard.off("keydown", this.handleJoinKey, this);
+      this.input.off("pointerdown", this.handleJoinPointerFallback, this);
+    });
   }
 
-  createButton(x, y, label, onClick) {
-    const container = this.add.container(x, y);
-    const background = this.add.rectangle(0, 0, 360, 54, 0x10253a, 0.92).setOrigin(0, 0.5);
-    background.setStrokeStyle(2, 0x79d7ff, 0.9);
-    const text = this.add.text(24, 0, label, {
+  createButton(layout, onClick) {
+    const container = this.add.container(layout.x, layout.y);
+    const background = this.add.rectangle(0, 0, layout.width, layout.height, layout.fill, 0.92).setOrigin(0, 0.5);
+    background.setStrokeStyle(2, layout.stroke, layout.strokeAlpha);
+    const text = this.add.text(24, 0, layout.label, {
       fontFamily: "monospace",
-      fontSize: "22px",
+      fontSize: layout.fontSize,
       color: "#ffffff"
     }).setOrigin(0, 0.5);
+    const hitZone = this.add.zone(0, 0, layout.width, layout.height).setOrigin(0, 0.5).setInteractive({
+      useHandCursor: true
+    });
+
+    container.add([background, text, hitZone]);
+    hitZone.on("pointerover", () => background.setFillStyle(layout.hoverFill, 0.96));
+    hitZone.on("pointerout", () => background.setFillStyle(layout.fill, 0.92));
+    hitZone.on("pointerdown", onClick);
+    return container;
+  }
+
+  createNotice(message) {
+    if (!message) return;
+
+    const container = this.add.container(
+      WIDTH - NOTICE_WIDTH / 2 - NOTICE_MARGIN,
+      HEIGHT - NOTICE_HEIGHT / 2 - NOTICE_MARGIN
+    ).setDepth(20);
+    const background = this.add.rectangle(0, 0, NOTICE_WIDTH, NOTICE_HEIGHT, 0x07111f, 0.92);
+    background.setStrokeStyle(2, 0xffd166, 0.95);
+    const text = this.add.text(0, 0, message, {
+      fontFamily: "monospace",
+      fontSize: "18px",
+      color: "#fff2b8",
+      align: "center",
+      wordWrap: { width: 336 }
+    }).setOrigin(0.5);
 
     container.add([background, text]);
-    const hitArea = new Phaser.Geom.Rectangle(0, -27, 360, 54);
-    container.setSize(360, 54).setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
-    background.setInteractive({ useHandCursor: true });
-    text.setInteractive({ useHandCursor: true });
-    for (const target of [container, background, text]) {
-      target.on("pointerover", () => background.setFillStyle(0x1a4968, 0.96));
-      target.on("pointerout", () => background.setFillStyle(0x10253a, 0.92));
-      target.on("pointerdown", onClick);
-    }
-    return container;
+    this.time.delayedCall(3200, () => {
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        duration: 260,
+        onComplete: () => container.destroy()
+      });
+    });
   }
 
   startJoinEntry() {
@@ -94,7 +136,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   handleJoinPointerFallback(pointer) {
-    const inGameBounds = pointer.x >= 82 && pointer.x <= 442 && pointer.y >= 351 && pointer.y <= 405;
+    const inGameBounds = isPointInRect(pointer, getMenuButtonLayout("enterCode"));
     const inViewportBounds = pointer.x >= 54 && pointer.x <= 296 && pointer.y >= 234 && pointer.y <= 270;
     if (inGameBounds || inViewportBounds) {
       this.startJoinEntry();

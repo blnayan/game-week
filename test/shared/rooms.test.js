@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   assignPlayerId,
+  canCloseRoom,
   canJoinRoom,
   createRoomCode,
+  createRematchRequestStatus,
   normalizeRoomCode,
+  recordRematchRequest,
   removeSocketFromRooms,
+  shouldForfeitOnDisconnect,
+  shouldRunRoomInterval,
   sendAck,
   toPublicSnapshot
 } from "../../shared/rooms.js";
@@ -29,6 +34,7 @@ describe("room helpers", () => {
     const match = {
       status: "playing",
       winnerId: null,
+      endReason: null,
       elapsedMs: 16.67,
       effects: [{ type: "hitSpark" }],
       fighters: { p1: { id: "p1" }, p2: { id: "p2" } },
@@ -38,6 +44,7 @@ describe("room helpers", () => {
     expect(toPublicSnapshot(match)).toEqual({
       status: "playing",
       winnerId: null,
+      endReason: null,
       elapsedMs: 17,
       effects: match.effects,
       fighters: match.fighters
@@ -96,5 +103,83 @@ describe("room helpers", () => {
 
     expect(canJoinRoom(room, "socket-a")).toEqual({ ok: false, error: "Room is complete" });
     expect(canJoinRoom(room, "socket-b")).toEqual({ ok: false, error: "Room is complete" });
+  });
+
+  it("only allows explicit room close after a completed match by a room player", () => {
+    const completedRoom = {
+      match: { status: "complete" },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]])
+    };
+    const activeRoom = {
+      match: { status: "playing" },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]])
+    };
+
+    expect(canCloseRoom(completedRoom, "socket-a")).toEqual({ ok: true });
+    expect(canCloseRoom(activeRoom, "socket-a")).toEqual({ ok: false, error: "Room is still active" });
+    expect(canCloseRoom(completedRoom, "socket-c")).toEqual({ ok: false, error: "Room not found" });
+    expect(canCloseRoom(null, "socket-a")).toEqual({ ok: false, error: "Room not found" });
+  });
+
+  it("requires both current room players to request rematch", () => {
+    const room = {
+      match: { status: "complete" },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]]),
+      rematchRequests: new Set()
+    };
+
+    expect(recordRematchRequest(room, "socket-a")).toEqual({ ok: true, ready: false, requested: 1, required: 2 });
+    expect(room.rematchRequests.has("socket-a")).toBe(true);
+    expect(recordRematchRequest(room, "socket-a")).toEqual({ ok: true, ready: false, requested: 1, required: 2 });
+    expect(recordRematchRequest(room, "socket-b")).toEqual({ ok: true, ready: true, requested: 2, required: 2 });
+  });
+
+  it("builds structured rematch request status for both result screens", () => {
+    const room = {
+      code: "ABCDE",
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]])
+    };
+    const rematch = { requested: 1, required: 2 };
+
+    expect(createRematchRequestStatus(room, "p1", rematch)).toEqual({
+      message: "p1 wants a rematch",
+      players: 2,
+      roomCode: "ABCDE",
+      rematch: {
+        requestedBy: "p1",
+        requested: 1,
+        required: 2
+      }
+    });
+  });
+
+  it("rejects rematch requests when the room is gone, active, or missing an opponent", () => {
+    expect(recordRematchRequest(null, "socket-a")).toEqual({ ok: false, error: "Room not found" });
+    expect(recordRematchRequest({
+      match: { status: "playing" },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]]),
+      rematchRequests: new Set()
+    }, "socket-a")).toEqual({ ok: false, error: "Rematch unavailable" });
+    expect(recordRematchRequest({
+      match: { status: "complete" },
+      players: new Map([["socket-a", "p1"]]),
+      rematchRequests: new Set()
+    }, "socket-a")).toEqual({ ok: false, error: "Opponent left" });
+  });
+
+  it("forfeits active disconnects but not waiting room exits", () => {
+    expect(shouldForfeitOnDisconnect({ phase: "playing", match: { status: "playing" } })).toBe(true);
+    expect(shouldForfeitOnDisconnect({ phase: "paused", match: { status: "playing" } })).toBe(true);
+    expect(shouldForfeitOnDisconnect({ phase: "waiting", match: { status: "playing" } })).toBe(false);
+    expect(shouldForfeitOnDisconnect({ phase: "countdown", match: { status: "playing" } })).toBe(false);
+    expect(shouldForfeitOnDisconnect({ phase: "complete", match: { status: "complete" } })).toBe(false);
+  });
+
+  it("runs room simulation intervals only during active two-player matches", () => {
+    expect(shouldRunRoomInterval({ phase: "waiting", match: { status: "playing" }, players: new Map([["a", "p1"]]) })).toBe(false);
+    expect(shouldRunRoomInterval({ phase: "countdown", match: { status: "playing" }, players: new Map([["a", "p1"], ["b", "p2"]]) })).toBe(false);
+    expect(shouldRunRoomInterval({ phase: "paused", match: { status: "playing" }, players: new Map([["a", "p1"], ["b", "p2"]]) })).toBe(false);
+    expect(shouldRunRoomInterval({ phase: "playing", match: { status: "playing" }, players: new Map([["a", "p1"], ["b", "p2"]]) })).toBe(true);
+    expect(shouldRunRoomInterval({ phase: "playing", match: { status: "complete" }, players: new Map([["a", "p1"], ["b", "p2"]]) })).toBe(false);
   });
 });

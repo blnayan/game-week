@@ -15,6 +15,7 @@ export function createMatch(mode = "cpu") {
     mode,
     status: "playing",
     winnerId: null,
+    endReason: null,
     elapsedMs: 0,
     effects: [],
     inputs: {
@@ -41,6 +42,26 @@ export function createEmptyInput() {
 
 export function queueInput(match, fighterId, input) {
   match.inputs[fighterId] = { ...createEmptyInput(), ...input };
+}
+
+export function forfeitMatch(match, fighterId, reason = "forfeit") {
+  if (!match || match.status === "complete" || !match.fighters?.[fighterId]) return match;
+
+  const opponentId = fighterId === "p1" ? "p2" : "p1";
+  const forfeitingFighter = match.fighters[fighterId];
+  const winningFighter = match.fighters[opponentId];
+
+  forfeitingFighter.stocks = 0;
+  forfeitingFighter.activeAttack = null;
+  forfeitingFighter.stats.falls += 1;
+  winningFighter.stats.kos += 1;
+  setFighterState(forfeitingFighter, FighterStates.KO);
+  setFighterState(winningFighter, FighterStates.Victory);
+  match.status = "complete";
+  match.winnerId = opponentId;
+  match.endReason = reason;
+
+  return match;
 }
 
 export function stepMatch(match, dtMs) {
@@ -157,6 +178,7 @@ function handleBlastZone(match, fighterId) {
     setFighterState(fighter, FighterStates.KO);
     match.status = "complete";
     match.winnerId = opponentId;
+    match.endReason = "stocks";
     setFighterState(match.fighters[opponentId], FighterStates.Victory);
     return;
   }

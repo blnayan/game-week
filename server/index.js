@@ -4,14 +4,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { FIXED_DT_MS } from "../shared/constants.js";
-import { createMatch, queueInput, stepMatch } from "../shared/match.js";
+import { createMatch, forfeitMatch, queueInput, stepMatch } from "../shared/match.js";
 import {
   assignPlayerId,
+  canCloseRoom,
   canJoinRoom,
   createRoomCode,
+  createRematchRequestStatus,
   normalizeRoomCode,
+  recordRematchRequest,
   removeSocketFromRooms,
   sendAck,
+  shouldForfeitOnDisconnect,
+  shouldRunRoomInterval,
   toPublicSnapshot
 } from "../shared/rooms.js";
 
@@ -54,13 +59,78 @@ io.on("connection", (socket) => {
     joinRoom(socket, room, ack);
   });
 
+  socket.on("room:close", (payload, ack) => {
+    const room = rooms.get(normalizeRoomCode({ code: payload?.roomCode }));
+    const closeable = canCloseRoom(room, socket.id);
+    if (!closeable.ok) return sendAck(ack, closeable);
+
+    io.to(room.code).emit("room:status", {
+      message: "Room disconnected",
+      players: Math.max(room.players.size - 1, 0),
+      roomCode: room.code
+    });
+    deleteRoom(room);
+    sendAck(ack, { ok: true });
+  });
+
   socket.on("match:input", (payload) => {
     const safePayload = payload && typeof payload === "object" ? payload : {};
     const room = rooms.get(normalizeRoomCode({ code: safePayload.roomCode }));
     const playerId = room?.players.get(socket.id);
-    if (!room || !playerId || room.match.status === "complete") return;
+    if (!room || !playerId || room.match.status === "complete" || room.phase !== "playing") return;
     const input = safePayload.input && typeof safePayload.input === "object" ? safePayload.input : {};
     queueInput(room.match, playerId, input);
+  });
+
+  socket.on("match:pause", (payload) => {
+    const room = rooms.get(normalizeRoomCode({ code: payload?.roomCode }));
+    const playerId = room?.players.get(socket.id);
+    if (!room || !playerId || room.match.status === "complete") return;
+
+    if (payload?.paused && room.phase === "playing") {
+      room.phase = "paused";
+      stopRoomInterval(room);
+      io.to(room.code).emit("room:status", { message: `${playerId} paused`, players: room.players.size, roomCode: room.code });
+      return;
+    }
+
+    if (!payload?.paused && room.phase === "paused") {
+      room.phase = "playing";
+      startRoomInterval(room);
+      io.to(room.code).emit("room:status", { message: "Fight", players: room.players.size, roomCode: room.code });
+    }
+  });
+
+  socket.on("match:leave", (payload) => {
+    const room = rooms.get(normalizeRoomCode({ code: payload?.roomCode }));
+    const playerId = room?.players.get(socket.id);
+    if (!room || !playerId || room.match.status === "complete") return;
+
+    clearRoomCountdown(room);
+    forfeitMatch(room.match, playerId, "forfeit");
+    room.phase = "complete";
+    io.to(room.code).emit("room:status", { message: `${playerId} forfeited`, players: room.players.size, roomCode: room.code });
+    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
+    stopRoomInterval(room);
+  });
+
+  socket.on("match:rematch", (payload, ack) => {
+    const room = rooms.get(normalizeRoomCode({ code: payload?.roomCode }));
+    const playerId = room?.players.get(socket.id);
+    const rematch = recordRematchRequest(room, socket.id);
+    if (!rematch.ok) return sendAck(ack, rematch);
+    if (!rematch.ready) {
+      sendAck(ack, rematch);
+      io.to(room.code).emit("room:status", createRematchRequestStatus(room, playerId, rematch));
+      return;
+    }
+
+    room.match = createMatch("online");
+    room.rematchRequests.clear();
+    sendAck(ack, rematch);
+    io.to(room.code).emit("room:status", { message: `${playerId} started a rematch`, players: room.players.size, roomCode: room.code });
+    io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
+    startRoomCountdown(room);
   });
 
   socket.on("disconnect", () => {
@@ -73,17 +143,26 @@ function createServerRoom(code) {
     code,
     players: new Map(),
     match: createMatch("online"),
+    phase: "waiting",
+    rematchRequests: new Set(),
+    countdownTimers: [],
     interval: null
   };
+  return room;
+}
+
+function startRoomInterval(room) {
+  if (!shouldRunRoomInterval(room)) return;
+  if (room.interval) return;
   room.interval = setInterval(() => {
-    if (room.players.size < 2) return;
+    if (room.players.size < 2 || room.phase !== "playing") return;
     stepMatch(room.match, FIXED_DT_MS);
     io.to(room.code).emit("match:snapshot", toPublicSnapshot(room.match));
     if (room.match.status === "complete") {
+      room.phase = "complete";
       stopRoomInterval(room);
     }
   }, FIXED_DT_MS);
-  return room;
 }
 
 function joinRoom(socket, room, ack) {
@@ -93,24 +172,80 @@ function joinRoom(socket, room, ack) {
   sendAck(ack, { ok: true, roomCode: room.code, playerId });
   io.to(room.code).emit("room:status", { message: "Player joined", players: room.players.size, roomCode: room.code });
   socket.emit("match:snapshot", toPublicSnapshot(room.match));
+  if (room.players.size < 2) {
+    io.to(room.code).emit("room:status", { message: "Waiting for opponent", players: room.players.size, roomCode: room.code });
+  } else if (room.match.status === "playing" && room.phase === "waiting") {
+    startRoomCountdown(room);
+  }
 }
 
 function releaseSocketFromGameRooms(socket, exceptRoomCode = null) {
   const removals = removeSocketFromRooms(rooms, socket.id, exceptRoomCode);
   for (const removal of removals) {
-    io.to(removal.code).emit("room:status", { message: `${removal.playerId} disconnected`, players: removal.players });
-    socket.leave(removal.code);
-    if (removal.emptied) {
+    if (shouldForfeitOnDisconnect(removal.room)) {
+      clearRoomCountdown(removal.room);
+      forfeitMatch(removal.room.match, removal.playerId, "disconnect");
+      removal.room.phase = "complete";
+      io.to(removal.code).emit("room:status", {
+        message: "Room disconnected",
+        players: removal.players,
+        roomCode: removal.code
+      });
+      io.to(removal.code).emit("match:snapshot", toPublicSnapshot(removal.room.match));
       stopRoomInterval(removal.room);
-      rooms.delete(removal.code);
+      deleteRoom(removal.room);
+      continue;
     }
+
+    socket.leave(removal.code);
+    if (!removal.emptied) {
+      io.to(removal.code).emit("room:status", { message: "Room disconnected", players: removal.players, roomCode: removal.code });
+    }
+    deleteRoom(removal.room);
   }
+}
+
+function startRoomCountdown(room) {
+  clearRoomCountdown(room);
+  room.phase = "countdown";
+
+  [3, 2, 1].forEach((count, index) => {
+    room.countdownTimers.push(setTimeout(() => {
+      if (room.players.size < 2 || room.match.status !== "playing") return;
+      io.to(room.code).emit("room:status", { message: `Starting in ${count}`, players: room.players.size, roomCode: room.code });
+    }, index * 1000));
+  });
+
+  room.countdownTimers.push(setTimeout(() => {
+    if (room.players.size < 2 || room.match.status !== "playing") {
+      room.phase = "waiting";
+      return;
+    }
+
+    room.phase = "playing";
+    startRoomInterval(room);
+    io.to(room.code).emit("room:status", { message: "Fight", players: room.players.size, roomCode: room.code });
+  }, 3000));
+}
+
+function clearRoomCountdown(room) {
+  for (const timer of room.countdownTimers || []) {
+    clearTimeout(timer);
+  }
+  room.countdownTimers = [];
 }
 
 function stopRoomInterval(room) {
   if (!room.interval) return;
   clearInterval(room.interval);
   room.interval = null;
+}
+
+function deleteRoom(room) {
+  clearRoomCountdown(room);
+  stopRoomInterval(room);
+  rooms.delete(room.code);
+  io.in(room.code).socketsLeave(room.code);
 }
 
 server.listen(port, () => {
