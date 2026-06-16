@@ -94,6 +94,22 @@ describe("createSocketClient", () => {
     expect(fakeSocket.emit).toHaveBeenCalledWith("match:pause", { roomCode: "ROOM1", paused: true });
   });
 
+  it("replays the latest room status to result screens that subscribe after the event", () => {
+    const client = createSocketClient({ ackTimeoutMs: 100 });
+    const rematchStatus = {
+      message: "p1 wants a rematch",
+      players: 2,
+      roomCode: "ROOM1",
+      rematch: { requestedBy: "p1", requested: 1, required: 2 }
+    };
+    const handler = vi.fn();
+
+    fakeSocket.emitServer("room:status", rematchStatus);
+    client.onStatus(handler);
+
+    expect(handler).toHaveBeenCalledWith(rematchStatus);
+  });
+
   it("clears pending ack timers and listeners when disconnected mid-request", async () => {
     const client = createSocketClient({ ackTimeoutMs: 100 });
     const pending = client.joinRoom("ROOM1");

@@ -5,11 +5,20 @@ const DEFAULT_ACK_TIMEOUT_MS = 4000;
 export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, socketFactory = io, lifecycleTarget = globalThis.window } = {}) {
   const socket = socketFactory();
   const pendingAcks = new Set();
+  const statusHandlers = new Set();
+  let latestStatus = null;
   let disconnected = false;
 
   const handlePageHide = () => {
     disconnect();
   };
+
+  socket.on("room:status", (status) => {
+    latestStatus = status;
+    for (const handler of statusHandlers) {
+      handler(status);
+    }
+  });
 
   if (typeof lifecycleTarget?.addEventListener === "function") {
     lifecycleTarget.addEventListener("pagehide", handlePageHide);
@@ -56,8 +65,9 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
       return () => socket.off("match:snapshot", handler);
     },
     onStatus(handler) {
-      socket.on("room:status", handler);
-      return () => socket.off("room:status", handler);
+      statusHandlers.add(handler);
+      if (latestStatus) handler(latestStatus);
+      return () => statusHandlers.delete(handler);
     },
     disconnect
   };
