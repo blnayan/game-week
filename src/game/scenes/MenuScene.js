@@ -4,7 +4,7 @@ import { updateRoomCodeEntry } from "../input/roomCodeEntry.js";
 import { loadProgression, selectPlayerPalette } from "../progression/progressionStore.js";
 import { getMenuButtonLayout, getStageChoiceLayout, isPointInRect } from "./menuLayout.js";
 import { getMenuInitialRoomCode, getMenuNoticeText } from "./menuNotice.js";
-import { getMenuStageOptions, resolveMenuStageSelection } from "./stageSelection.js";
+import { getMenuStageOptions, getStageChoiceViewModel, resolveMenuStageSelection } from "./stageSelection.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -131,16 +131,14 @@ export class MenuScene extends Phaser.Scene {
       if (existing) existing.destroy();
 
       const layout = getStageChoiceLayout(option.stageId);
+      const view = getStageChoiceViewModel(option);
       const container = this.add.container(layout.x, layout.y);
-      const fill = option.selected ? 0x2d6d8f : option.locked ? 0x2a2f3d : 0x10253a;
-      const hoverFill = option.selected ? 0x347ea5 : option.locked ? 0x2a2f3d : 0x1a4968;
-      const stroke = option.selected ? 0xffd166 : option.locked ? 0x6f7788 : 0x79d7ff;
-      const background = this.add.rectangle(0, 0, layout.width, layout.height, fill, option.locked ? 0.72 : 0.94).setOrigin(0, 0.5);
-      background.setStrokeStyle(2, stroke, 0.95);
-      const text = this.add.text(layout.width / 2, 0, layout.label, {
+      const background = this.add.rectangle(0, 0, layout.width, layout.height, view.fill, view.fillAlpha).setOrigin(0, 0.5);
+      background.setStrokeStyle(2, view.stroke, 0.95);
+      const text = this.add.text(layout.width / 2, 0, view.label, {
         fontFamily: "monospace",
         fontSize: layout.fontSize,
-        color: option.locked ? "#d8dee9" : "#ffffff",
+        color: view.textColor,
         align: "center"
       }).setOrigin(0.5);
       const hitZone = this.add.zone(0, 0, layout.width, layout.height).setOrigin(0, 0.5).setInteractive({
@@ -148,8 +146,8 @@ export class MenuScene extends Phaser.Scene {
       });
 
       container.add([background, text, hitZone]);
-      hitZone.on("pointerover", () => background.setFillStyle(hoverFill, option.locked ? 0.72 : 0.98));
-      hitZone.on("pointerout", () => background.setFillStyle(fill, option.locked ? 0.72 : 0.94));
+      hitZone.on("pointerover", () => background.setFillStyle(view.hoverFill, view.hoverAlpha));
+      hitZone.on("pointerout", () => background.setFillStyle(view.fill, view.fillAlpha));
       hitZone.on("pointerdown", () => this.handleStageChoice(option.stageId));
 
       this.stageChoiceButtons.set(option.stageId, container);

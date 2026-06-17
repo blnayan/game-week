@@ -1,3 +1,5 @@
+import { DEFAULT_STAGE_ID, normalizeStageId } from "../../../shared/stages.js";
+
 export function canOfferOnlineRematch({ isOnline, endReason, roomPlayers }) {
   if (!isOnline || roomPlayers < 2) return false;
   return endReason !== "disconnect";
@@ -46,5 +48,17 @@ export function getOnlineRematchSceneData({ roomCode, playerId, roomPlayers, net
     playerId,
     roomPlayers: roomPlayers || 2,
     net
+  };
+}
+
+export function getResultStageId(snapshot = {}) {
+  return normalizeStageId(snapshot.stageId || DEFAULT_STAGE_ID);
+}
+
+export function getCpuRematchSceneData(snapshot = {}, { playerPalette } = {}) {
+  return {
+    mode: "cpu",
+    playerPalette: playerPalette || snapshot.fighters?.p1?.palette,
+    stageId: getResultStageId(snapshot)
   };
 }

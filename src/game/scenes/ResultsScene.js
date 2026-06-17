@@ -3,13 +3,16 @@ import { clearRoomCodeFromUrl } from "@game/net/roomLinks.js";
 import { awardMatchXp } from "@game/progression/progressionStore.js";
 import {
   canOfferOnlineRematch,
+  getCpuRematchSceneData,
   getOnlineRematchSceneData,
   getResultMenuSceneData,
+  getResultStageId,
   getRematchDisplayState,
   getResultStatusText,
   isRematchStartSnapshot,
   shouldHideOnlineRematchOnStatus
 } from "./resultsState.js";
+import { getStageAssetKey } from "../render/assetManifest.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -20,7 +23,7 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   create(data = {}) {
-    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:cosmic-floating").setDisplaySize(WIDTH, HEIGHT);
+    this.add.image(WIDTH / 2, HEIGHT / 2, getStageAssetKey(getResultStageId(data.snapshot))).setDisplaySize(WIDTH, HEIGHT);
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x05070a, 0.72);
 
     const winner = data.winnerId === "p2" ? "P2 Wins" : "P1 Wins";
@@ -104,10 +107,7 @@ export class ResultsScene extends Phaser.Scene {
           return;
         }
 
-        this.scene.start("MatchScene", {
-          mode: "cpu",
-          playerPalette: data.playerPalette || data.snapshot?.fighters?.p1?.palette
-        });
+        this.scene.start("MatchScene", getCpuRematchSceneData(data.snapshot, { playerPalette: data.playerPalette }));
       });
     }
 

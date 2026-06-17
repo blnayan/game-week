@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STAGE_ID, TRI_PLATFORM_STAGE_ID } from "../../../shared/stages.js";
-import { getMenuStageOptions, MENU_STAGE_IDS, resolveMenuStageSelection } from "./stageSelection.js";
+import {
+  getMenuStageOptions,
+  getStageChoiceViewModel,
+  MENU_STAGE_IDS,
+  resolveMenuStageSelection
+} from "./stageSelection.js";
 
 describe("stage selection", () => {
   it("exposes the supported menu stage ids", () => {
@@ -43,6 +48,17 @@ describe("stage selection", () => {
     expect(selection).toEqual({
       selectedStageId: DEFAULT_STAGE_ID,
       notice: "Stage unlocks at level 10"
+    });
+  });
+
+  it("uses option labels when building rendered menu controls", () => {
+    expect(getStageChoiceViewModel({
+      label: "Tri Platform - Level 10",
+      locked: true,
+      selected: false
+    })).toMatchObject({
+      label: "Tri Platform - Level 10",
+      textColor: "#d8dee9"
     });
   });
 });

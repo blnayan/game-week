@@ -42,3 +42,18 @@ export function resolveMenuStageSelection(stageId, progress = {}, currentStageId
     notice: ""
   };
 }
+
+export function getStageChoiceViewModel(option = {}) {
+  const locked = Boolean(option.locked);
+  const selected = Boolean(option.selected);
+
+  return {
+    label: option.label || "",
+    fill: selected ? 0x2d6d8f : locked ? 0x2a2f3d : 0x10253a,
+    hoverFill: selected ? 0x347ea5 : locked ? 0x2a2f3d : 0x1a4968,
+    stroke: selected ? 0xffd166 : locked ? 0x6f7788 : 0x79d7ff,
+    fillAlpha: locked ? 0.72 : 0.94,
+    hoverAlpha: locked ? 0.72 : 0.98,
+    textColor: locked ? "#d8dee9" : "#ffffff"
+  };
+}

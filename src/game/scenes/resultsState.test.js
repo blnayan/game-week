@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   canOfferOnlineRematch,
   getOnlineRematchSceneData,
+  getCpuRematchSceneData,
   getResultMenuSceneData,
+  getResultStageId,
   getRematchDisplayState,
   getResultStatusText,
   getResultRoomStatusText,
   isRematchStartSnapshot,
   shouldHideOnlineRematchOnStatus
 } from "./resultsState.js";
+import { DEFAULT_STAGE_ID, TRI_PLATFORM_STAGE_ID } from "../../../shared/stages.js";
 
 describe("canOfferOnlineRematch", () => {
   it("allows online rematch after stocks or manual forfeit when both players remain", () => {
@@ -115,5 +118,21 @@ describe("result screen state helpers", () => {
       net
     });
     expect(getOnlineRematchSceneData({ roomCode: "ABCDE", playerId: "p2", net })).toMatchObject({ roomPlayers: 2 });
+  });
+
+  it("preserves the completed stage for CPU rematches and results art", () => {
+    const snapshot = { stageId: TRI_PLATFORM_STAGE_ID, fighters: { p1: { palette: "violet" } } };
+
+    expect(getCpuRematchSceneData(snapshot, { playerPalette: "blue" })).toEqual({
+      mode: "cpu",
+      playerPalette: "blue",
+      stageId: TRI_PLATFORM_STAGE_ID
+    });
+    expect(getCpuRematchSceneData(snapshot)).toMatchObject({
+      playerPalette: "violet",
+      stageId: TRI_PLATFORM_STAGE_ID
+    });
+    expect(getResultStageId(snapshot)).toBe(TRI_PLATFORM_STAGE_ID);
+    expect(getResultStageId({})).toBe(DEFAULT_STAGE_ID);
   });
 });
