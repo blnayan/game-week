@@ -77,11 +77,16 @@ describe("CPU input selection", () => {
     const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
     const input = chooseCpuInput(match, "p2", "normal");
 
-    match.fighters.p2.y = 660;
+    match.fighters.p2.y = 600;
     match.fighters.p2.x = 100;
+    const aboveTriPlatformRecovery = chooseCpuInput(match, "p2", "normal");
+
+    match.fighters.p2.y = 660;
     const recovering = chooseCpuInput(match, "p2", "normal");
 
     expect(input).toEqual(expect.any(Object));
+    expect(aboveTriPlatformRecovery.jump).toBe(false);
+    expect(aboveTriPlatformRecovery.right).toBe(true);
     expect(recovering.right).toBe(true);
     expect(recovering.jump).toBe(true);
   });

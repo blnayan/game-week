@@ -174,8 +174,9 @@ function findLandingPlatform(stage, fighter, previousFeet) {
     .find((platform) => {
       const withinPlatformX = fighter.x >= platform.x && fighter.x <= platform.x + platform.width;
       const wasAbovePlatform = previousFeet <= platform.y;
-      const withinLandingWindow = fighter.y >= platform.y - 30 && fighter.y <= platform.y + 30;
-      return withinPlatformX && wasAbovePlatform && withinLandingWindow;
+      const crossedPlatformTop = fighter.y >= platform.y;
+      const withinLandingWindow = fighter.y <= platform.y + 30;
+      return withinPlatformX && wasAbovePlatform && crossedPlatformTop && withinLandingWindow;
     });
 }
 
