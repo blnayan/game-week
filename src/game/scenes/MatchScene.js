@@ -1,13 +1,14 @@
 import Phaser from "phaser";
 import { chooseCpuInput } from "../../../shared/cpu.js";
 import { createMatch, forfeitMatch, queueInput, stepMatch } from "../../../shared/match.js";
+import { DEFAULT_STAGE_ID, getStageDefinition } from "../../../shared/stages.js";
 import { createKeyboardInput } from "../input/inputMapper.js";
 import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
 import { buildRoomLink, clearRoomCodeFromUrl, shouldClearRoomCodeAfterJoin } from "@game/net/roomLinks.js";
 import { createSocketClient } from "@game/net/socketClient.js";
 import { getOnlineOverlayState, shouldUnlockOnlineRoundFromSnapshot } from "./matchOverlayState.js";
 import { animationKey } from "../render/animationMap.js";
-import { FIGHTER_FRAME_BASELINE, FIGHTER_FRAME_HEIGHT } from "../render/assetManifest.js";
+import { FIGHTER_FRAME_BASELINE, FIGHTER_FRAME_HEIGHT, getStageAssetKey } from "../render/assetManifest.js";
 import { EFFECT_RENDER_SCALE, FIGHTER_RENDER_SCALE } from "../render/renderScale.js";
 
 const WIDTH = 1280;
@@ -25,7 +26,8 @@ export class MatchScene extends Phaser.Scene {
     this.mode = data.mode || "cpu";
     this.roomCode = data.roomCode || "";
     this.playerPalette = data.playerPalette;
-    this.match = createMatch(this.mode);
+    this.stageId = data.stageId || DEFAULT_STAGE_ID;
+    this.match = createMatch(this.mode, { stageId: this.stageId });
     if (this.mode === "cpu" && data.playerPalette) {
       this.match.fighters.p1.palette = data.playerPalette;
     }
@@ -40,7 +42,9 @@ export class MatchScene extends Phaser.Scene {
     this.roundActive = this.mode === "cpu";
     this.overlayLocked = false;
 
-    this.add.image(WIDTH / 2, HEIGHT / 2, "stage:cosmic-floating").setDisplaySize(WIDTH, HEIGHT);
+    this.stageBackground = this.add.image(WIDTH / 2, HEIGHT / 2, getStageAssetKey(this.stageId)).setDisplaySize(WIDTH, HEIGHT);
+    this.platformGraphics = this.add.graphics();
+    this.renderStage();
 
     this.fighterSprites = {
       p1: this.createFighterSprite(this.match.fighters.p1),
@@ -112,7 +116,9 @@ export class MatchScene extends Phaser.Scene {
     let response;
 
     try {
-      response = this.mode === "online-create" ? await this.net.createRoom() : await this.net.joinRoom(data.roomCode);
+      response = this.mode === "online-create"
+        ? await this.net.createRoom({ stageId: this.stageId, playerLevel: data.playerLevel })
+        : await this.net.joinRoom(data.roomCode);
     } catch (error) {
       response = { ok: false, error: error?.message };
     }
@@ -147,6 +153,8 @@ export class MatchScene extends Phaser.Scene {
     }, { replayLatest: false });
     this.unsubscribeSnapshot = this.net.onSnapshot((snapshot) => {
       this.match = snapshot;
+      this.stageId = snapshot.stageId || this.stageId;
+      this.renderStage();
       this.renderFighters();
       this.renderEffects();
       if (shouldUnlockOnlineRoundFromSnapshot(snapshot, { localPaused: this.localPaused })) {
@@ -209,6 +217,18 @@ export class MatchScene extends Phaser.Scene {
       this.copyInviteButton,
       this.exitRoomButton
     ]);
+  }
+
+  renderStage() {
+    this.stageBackground?.setTexture(getStageAssetKey(this.match?.stageId || this.stageId));
+    this.platformGraphics?.clear();
+    this.platformGraphics?.fillStyle(0xe2edf4, 0.18);
+    this.platformGraphics?.lineStyle(2, 0xf4d46a, 0.95);
+
+    for (const platform of getStageDefinition(this.match?.stageId || this.stageId).platforms) {
+      this.platformGraphics?.fillRect(platform.x, platform.y, platform.width, platform.height);
+      this.platformGraphics?.strokeRect(platform.x, platform.y, platform.width, platform.height);
+    }
   }
 
   createModalButton(x, y, label, onClick) {

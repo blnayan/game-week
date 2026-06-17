@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getMenuButtonLayout, isPointInRect } from "./menuLayout.js";
+import { DEFAULT_STAGE_ID, TRI_PLATFORM_STAGE_ID } from "../../../shared/stages.js";
+import { getMenuButtonLayout, getStageChoiceLayout, isPointInRect } from "./menuLayout.js";
 
 describe("menu layout", () => {
   it("keeps manual join styled like the primary menu buttons", () => {
@@ -21,5 +22,16 @@ describe("menu layout", () => {
     expect(isPointInRect({ x: enterCode.x + enterCode.width - 1, y: enterCode.y }, enterCode)).toBe(true);
     expect(isPointInRect({ x: enterCode.x + enterCode.width + 1, y: enterCode.y }, enterCode)).toBe(false);
     expect(isPointInRect({ x: enterCode.x, y: enterCode.y - enterCode.height / 2 - 1 }, enterCode)).toBe(false);
+  });
+
+  it("positions the stage picker above the match mode buttons", () => {
+    const cpu = getMenuButtonLayout("cpu");
+    const createRoom = getMenuButtonLayout("createRoom");
+    const cosmic = getStageChoiceLayout(DEFAULT_STAGE_ID);
+    const triPlatform = getStageChoiceLayout(TRI_PLATFORM_STAGE_ID);
+
+    expect(cosmic.y + cosmic.height / 2).toBeLessThan(cpu.y - cpu.height / 2);
+    expect(triPlatform.y + triPlatform.height / 2).toBeLessThan(cpu.y - cpu.height / 2);
+    expect(createRoom.y).toBeGreaterThan(cpu.y);
   });
 });

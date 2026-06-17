@@ -1,3 +1,5 @@
+import { canCreateStageAtLevel } from "../../../shared/stages.js";
+
 const KEY = "pixel-arena-progress";
 const DEFAULT_PROGRESSION = { xp: 0, level: 1, palettes: ["blue", "orange"] };
 const VIOLET_UNLOCK_XP = 300;
@@ -25,6 +27,10 @@ export function awardMatchXp(amount) {
 
 export function selectPlayerPalette(progress = loadProgression()) {
   return progress.palettes.includes("violet") ? "violet" : "blue";
+}
+
+export function canUseStage(stageId, progress = loadProgression()) {
+  return canCreateStageAtLevel(stageId, progress.level).ok;
 }
 
 function normalizeProgression(value = DEFAULT_PROGRESSION) {

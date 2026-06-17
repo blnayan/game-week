@@ -27,6 +27,21 @@ describe("createSocketClient", () => {
     await expect(pending).resolves.toEqual({ ok: false, error: "Connection timed out" });
   });
 
+  it("sends the selected stage and player level when creating a room", async () => {
+    fakeSocket.emit.mockImplementation((event, _payload, ack) => {
+      if (event === "room:create") ack({ ok: true });
+    });
+    const client = createSocketClient({ ackTimeoutMs: 100 });
+
+    await expect(client.createRoom({ stageId: "tri-platform", playerLevel: 10 })).resolves.toEqual({ ok: true });
+
+    expect(fakeSocket.emit).toHaveBeenCalledWith(
+      "room:create",
+      { stageId: "tri-platform", playerLevel: 10 },
+      expect.any(Function)
+    );
+  });
+
   it("resolves room joins with an error on connect failure", async () => {
     const client = createSocketClient({ ackTimeoutMs: 100 });
     const pending = client.joinRoom("ROOM1");

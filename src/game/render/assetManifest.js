@@ -28,6 +28,11 @@ export const EFFECT_ANIMS = Object.freeze({
   koStreak: 6
 });
 
+export const STAGE_BACKGROUND_KEYS = Object.freeze({
+  "cosmic-floating": "stage:cosmic-floating",
+  "tri-platform": "stage:tri-platform"
+});
+
 const LOOPING_FIGHTER_ANIMS = new Set(["idle", "run", "victory"]);
 
 export function loadGameAssets(scene) {
@@ -42,11 +47,16 @@ export function loadGameAssets(scene) {
     frameWidth: 48,
     frameHeight: 48
   });
-  scene.load.image("stage:cosmic-floating", "/assets/stage/cosmic-floating-arena.png");
+  scene.load.image(STAGE_BACKGROUND_KEYS["cosmic-floating"], "/assets/stage/cosmic-floating-arena.png");
+  scene.load.image(STAGE_BACKGROUND_KEYS["tri-platform"], "/assets/stage/tri-platform-arena.png");
   scene.load.spritesheet("ui:portraits", "/assets/ui/portraits.png", {
     frameWidth: 64,
     frameHeight: 64
   });
+}
+
+export function getStageAssetKey(stageId = "cosmic-floating") {
+  return STAGE_BACKGROUND_KEYS[stageId] ?? STAGE_BACKGROUND_KEYS["cosmic-floating"];
 }
 
 export function createGameAnimations(scene) {

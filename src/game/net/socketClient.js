@@ -39,8 +39,14 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
 
   return {
     socket,
-    createRoom() {
-      return emitWithAck(socket, "room:create", {}, ackTimeoutMs, pendingAcks);
+    createRoom(options = {}) {
+      return emitWithAck(
+        socket,
+        "room:create",
+        { stageId: options.stageId, playerLevel: options.playerLevel },
+        ackTimeoutMs,
+        pendingAcks
+      );
     },
     joinRoom(code) {
       return emitWithAck(socket, "room:join", { code }, ackTimeoutMs, pendingAcks);

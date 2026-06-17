@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_STAGE_ID, TRI_PLATFORM_STAGE_ID } from "../../../shared/stages.js";
 
 const storage = new Map();
 
@@ -9,7 +10,7 @@ vi.stubGlobal("window", {
   }
 });
 
-const { awardMatchXp, loadProgression, selectPlayerPalette } = await import("./progressionStore.js");
+const { awardMatchXp, canUseStage, loadProgression, selectPlayerPalette } = await import("./progressionStore.js");
 
 describe("progression store", () => {
   beforeEach(() => {
@@ -54,5 +55,17 @@ describe("progression store", () => {
   it("selects violet as the player palette after unlock", () => {
     expect(selectPlayerPalette({ palettes: ["blue", "orange"] })).toBe("blue");
     expect(selectPlayerPalette({ palettes: ["blue", "orange", "violet"] })).toBe("violet");
+  });
+
+  it("allows the default stage at level 1", () => {
+    expect(canUseStage(DEFAULT_STAGE_ID, { level: 1 })).toBe(true);
+  });
+
+  it("keeps tri-platform locked below level 10", () => {
+    expect(canUseStage(TRI_PLATFORM_STAGE_ID, { level: 9 })).toBe(false);
+  });
+
+  it("unlocks tri-platform at level 10", () => {
+    expect(canUseStage(TRI_PLATFORM_STAGE_ID, { level: 10 })).toBe(true);
   });
 });
