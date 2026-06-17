@@ -4,15 +4,15 @@ const STAGE_CHOICES = {
   [DEFAULT_STAGE_ID]: {
     x: 104,
     y: 222,
-    width: 152,
+    width: 214,
     height: 52,
     label: "Cosmic Floating",
     fontSize: "16px"
   },
   [TRI_PLATFORM_STAGE_ID]: {
-    x: 272,
+    x: 334,
     y: 222,
-    width: 152,
+    width: 246,
     height: 52,
     label: "Tri Platform",
     fontSize: "16px"

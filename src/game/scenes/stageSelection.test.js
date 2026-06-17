@@ -13,14 +13,17 @@ describe("stage selection", () => {
     expect(options).toEqual([
       expect.objectContaining({
         stageId: DEFAULT_STAGE_ID,
+        label: "Cosmic Floating",
         selected: true,
         locked: false
       }),
       expect.objectContaining({
         stageId: TRI_PLATFORM_STAGE_ID,
+        label: "Tri Platform - Level 10",
         selected: false,
         locked: true,
-        notice: "Stage unlocks at level 10"
+        notice: "Stage unlocks at level 10",
+        unlockLevel: 10
       })
     ]);
   });

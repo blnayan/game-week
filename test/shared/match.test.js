@@ -24,9 +24,9 @@ describe("match simulation", () => {
   });
 
   it.each([
-    ["left", 280, 460],
-    ["top", 640, 380],
-    ["right", 1000, 460],
+    ["left", 280, 381],
+    ["top", 640, 191],
+    ["right", 1000, 381],
     ["main", 640, 540]
   ])("lands on the %s tri-platform ledge", (_name, x, y) => {
     const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
@@ -44,12 +44,12 @@ describe("match simulation", () => {
   it("does not snap down to a tri-platform ledge before crossing its top", () => {
     const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
     match.fighters.p1.x = 640;
-    match.fighters.p1.y = 380 - 24;
+    match.fighters.p1.y = 191 - 24;
     match.fighters.p1.velocity.y = 14;
 
     stepMatch(match, 16.67);
 
-    expect(match.fighters.p1.y).toBeLessThan(380);
+    expect(match.fighters.p1.y).toBeLessThan(191);
     expect(match.fighters.p1.onGround).toBe(false);
     expect(match.fighters.p1.velocity.y).toBeGreaterThan(0);
   });
@@ -57,13 +57,13 @@ describe("match simulation", () => {
   it("does not snap to a tri-platform ledge when moving upward from below", () => {
     const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
     match.fighters.p1.x = 640;
-    match.fighters.p1.y = 410;
+    match.fighters.p1.y = 221;
     match.fighters.p1.velocity.y = -12;
 
     stepMatch(match, 16.67);
 
-    expect(match.fighters.p1.y).toBeLessThan(410);
-    expect(match.fighters.p1.y).not.toBe(380);
+    expect(match.fighters.p1.y).toBeLessThan(221);
+    expect(match.fighters.p1.y).not.toBe(191);
     expect(match.fighters.p1.onGround).toBe(false);
   });
 

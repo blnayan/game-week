@@ -16,10 +16,11 @@ export function getMenuStageOptions(progress = {}, selectedStageId = DEFAULT_STA
     const availability = canCreateStageAtLevel(stageId, progress.level);
     return {
       stageId,
-      label: definition.name,
+      label: availability.ok ? definition.name : `${definition.name} - Level ${definition.unlockLevel}`,
       selected: currentStageId === stageId,
       locked: !availability.ok,
-      notice: availability.ok ? "" : availability.error
+      notice: availability.ok ? "" : availability.error,
+      unlockLevel: definition.unlockLevel
     };
   });
 }
