@@ -39,9 +39,9 @@ The CPU recovery helper should use the active stage's main platform rather than 
 
 The tri-platform map must use an AI-generated bitmap asset committed in the project. The asset should be saved as `public/assets/stage/tri-platform-arena.png` and loaded by Phaser with a stable key such as `stage:tri-platform`.
 
-The generated art is the visual map backdrop. It should show the same one-large-platform and three-mini-platform layout, but it must not become the source of physics truth because generated images cannot guarantee pixel-perfect geometry.
+The generated art is the visual map backdrop. It should show the same one-large-platform and three-mini-platform layout, but it must not become the source of physics truth because generated images cannot guarantee pixel-perfect geometry. The visible gameplay platforms should not have cast shadows or drop shadows, so there is no confusing shadow offset from the hitbox-aligned surfaces.
 
-The renderer should still draw exact platform surfaces directly from the shared rectangle definitions on top of the AI-generated art. This makes "hitboxes align perfectly" testable: there is no second set of hand-tuned visual coordinates. The AI bitmap provides art direction and background, while the shared stage catalog remains the source of truth for hitboxes.
+The renderer should still draw exact, flat, shadowless platform surfaces directly from the shared rectangle definitions on top of the AI-generated art. This makes "hitboxes align perfectly" testable: there is no second set of hand-tuned visual coordinates. The AI bitmap provides art direction and background, while the shared stage catalog remains the source of truth for hitboxes.
 
 ## Online Rooms
 

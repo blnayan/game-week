@@ -859,13 +859,14 @@ public/assets/stage/tri-platform-arena.png
 Prompt requirements:
 
 ```text
-Create a game-ready 16:9 2D platform-fighter stage background, no characters and no text. The image should show a bright floating ruins arena in the sky with one wide lower horizontal platform and three smaller floating horizontal platforms in a Battlefield / Super Smash Bros. layout. Place the main platform low in the lower quarter, the left and right mini platforms lower-middle, and the top mini platform above them with open space between all platforms. Style: colorful pixel-art inspired digital painting, crisp clean silhouettes, ancient stone slabs with gold metal trim, moss, subtle cyan energy accents, blue sky, clouds, distant mountains. The platforms must look clean and horizontal so exact hitbox-aligned platform rectangles can be overlaid later. No UI, no labels, no watermark, no characters, no logos.
+Create a game-ready 16:9 2D platform-fighter stage background, no characters and no text. The image should show a bright floating ruins arena in the sky with one wide lower horizontal platform and three smaller floating horizontal platforms in a Battlefield / Super Smash Bros. layout. Place the main platform low in the lower quarter, the left and right mini platforms lower-middle, and the top mini platform above them with open space between all platforms. Style: colorful pixel-art inspired digital painting, crisp clean silhouettes, ancient stone slabs with gold metal trim, moss, subtle cyan energy accents, blue sky, clouds, distant mountains. The platforms must look clean and horizontal so exact hitbox-aligned platform rectangles can be overlaid later. No platform cast shadows, no drop shadows, no contact shadows, no UI, no labels, no watermark, no characters, no logos.
 ```
 
 Important:
 - Do not reference an image from `$HOME/.codex/generated_images` directly in code.
 - Move or copy the selected generated PNG into `public/assets/stage/tri-platform-arena.png`.
 - The AI bitmap is visual art only. Physics and exact platform overlay still come from `shared/stages.js`.
+- Visible gameplay platform overlays must be flat and shadowless, with no cast shadow, drop shadow, or offset shadow effect.
 
 In `src/game/render/assetManifest.js`, add:
 
