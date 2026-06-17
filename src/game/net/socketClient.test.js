@@ -175,6 +175,33 @@ describe("createSocketClient", () => {
     expect(handler).toHaveBeenCalledWith(snapshot);
   });
 
+  it("tracks latest socket ping latency from manager ping and pong events", () => {
+    let now = 1000;
+    const client = createSocketClient({ ackTimeoutMs: 100, now: () => now });
+
+    fakeSocket.emitManager("ping");
+    now = 1042;
+    fakeSocket.emitManager("pong");
+
+    expect(client.getPingMs()).toBe(42);
+  });
+
+  it("tracks latest application latency from server acknowledgements", async () => {
+    let now = 2000;
+    fakeSocket.emit.mockImplementation((event, _payload, ack) => {
+      if (event === "latency:ping") {
+        now = 2033;
+        ack({ ok: true });
+      }
+    });
+    const client = createSocketClient({ ackTimeoutMs: 100, latencyIntervalMs: 250, now: () => now });
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(fakeSocket.emit).toHaveBeenCalledWith("latency:ping", {}, expect.any(Function));
+    expect(client.getPingMs()).toBe(33);
+  });
+
   it("clears pending ack timers and listeners when disconnected mid-request", async () => {
     const client = createSocketClient({ ackTimeoutMs: 100 });
     const pending = client.joinRoom("ROOM1");
@@ -203,8 +230,19 @@ describe("createSocketClient", () => {
 
 function createFakeSocket() {
   const handlers = new Map();
+  const managerHandlers = new Map();
 
   return {
+    io: {
+      on: vi.fn((event, handler) => {
+        const eventHandlers = managerHandlers.get(event) ?? new Set();
+        eventHandlers.add(handler);
+        managerHandlers.set(event, eventHandlers);
+      }),
+      off: vi.fn((event, handler) => {
+        managerHandlers.get(event)?.delete(handler);
+      })
+    },
     emit: vi.fn(),
     on: vi.fn((event, handler) => {
       const eventHandlers = handlers.get(event) ?? new Set();
@@ -218,6 +256,11 @@ function createFakeSocket() {
     emitServer(event, payload) {
       for (const handler of handlers.get(event) ?? []) {
         handler(payload);
+      }
+    },
+    emitManager(event) {
+      for (const handler of managerHandlers.get(event) ?? []) {
+        handler();
       }
     }
   };

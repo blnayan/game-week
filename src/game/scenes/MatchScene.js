@@ -11,6 +11,8 @@ import { FIGHTER_FRAME_BASELINE, FIGHTER_FRAME_HEIGHT, getStageAssetKey } from "
 import { EFFECT_RENDER_SCALE, FIGHTER_RENDER_SCALE } from "../render/renderScale.js";
 import { renderStageView } from "./stageRender.js";
 import { stepCpuMatchFrame } from "./cpuFrame.js";
+import { getFighterNameTagView } from "./fighterNameTag.js";
+import { getMatchHudMeta } from "./matchHudMeta.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -44,6 +46,7 @@ export class MatchScene extends Phaser.Scene {
     this.roundActive = this.mode === "cpu";
     this.overlayLocked = false;
     this.cpuStepRemainderMs = 0;
+    this.onlineStatusMessage = "";
 
     this.stageBackground = this.add.image(WIDTH / 2, HEIGHT / 2, getStageAssetKey(this.stageId)).setDisplaySize(WIDTH, HEIGHT);
     this.platformGraphics = this.add.graphics();
@@ -52,6 +55,10 @@ export class MatchScene extends Phaser.Scene {
     this.fighterSprites = {
       p1: this.createFighterSprite(this.match.fighters.p1),
       p2: this.createFighterSprite(this.match.fighters.p2)
+    };
+    this.fighterNameTags = {
+      p1: this.createFighterNameTag("p1", this.match.fighters.p1),
+      p2: this.createFighterNameTag("p2", this.match.fighters.p2)
     };
 
     this.scene.launch("HudScene");
@@ -80,6 +87,7 @@ export class MatchScene extends Phaser.Scene {
       if (this.roomCode && this.net && this.roundActive) {
         this.net.sendInput(this.roomCode, this.onlineInputLatch.read(input, Math.min(delta, 50)));
       }
+      this.hud?.updateHud(this.match, this.getHudMeta(this.onlineStatusMessage));
       return;
     }
 
@@ -87,7 +95,7 @@ export class MatchScene extends Phaser.Scene {
 
     this.renderFighters();
     this.renderEffects();
-    this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode });
+    this.hud?.updateHud(this.match, this.getHudMeta());
 
     if (this.match.status === "complete") {
       this.resultStarted = true;
@@ -148,9 +156,10 @@ export class MatchScene extends Phaser.Scene {
   subscribeToOnlineMatch() {
     this.unsubscribeStatus = this.net.onStatus((status) => {
       if (Number.isFinite(status?.players)) this.roomPlayers = status.players;
+      this.onlineStatusMessage = status.message;
       this.updateOnlineControls(status.message);
       this.handleOnlineStatus(status);
-      this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode, status: status.message });
+      this.hud?.updateHud(this.match, this.getHudMeta(status.message));
     }, { replayLatest: false });
     this.unsubscribeSnapshot = this.net.onSnapshot((snapshot) => {
       this.match = snapshot;
@@ -162,7 +171,7 @@ export class MatchScene extends Phaser.Scene {
         this.roundActive = true;
         this.hidePauseOverlay();
       }
-      this.hud?.updateHud(this.match, { mode: this.mode, roomCode: this.roomCode, status: `You are ${this.playerId}` });
+      this.hud?.updateHud(this.match, this.getHudMeta(`You are ${this.playerId}`));
 
       if (snapshot.status === "complete" && !this.resultStarted) {
         this.resultStarted = true;
@@ -269,6 +278,15 @@ export class MatchScene extends Phaser.Scene {
       .catch(() => {
         if (!silent) this.updateOnlineControls("Copy failed; use the invite link");
       });
+  }
+
+  getHudMeta(status = "") {
+    return getMatchHudMeta({
+      mode: this.mode,
+      roomCode: this.roomCode,
+      status,
+      net: this.net
+    });
   }
 
   handleOnlineStatus(status) {
@@ -388,13 +406,28 @@ export class MatchScene extends Phaser.Scene {
     return sprite;
   }
 
+  createFighterNameTag(fighterId, fighter) {
+    const view = getFighterNameTagView(fighterId, fighter);
+    return this.add.text(view.x, view.y, view.label, {
+      fontFamily: "monospace",
+      fontSize: "20px",
+      color: view.color,
+      stroke: "#07111f",
+      strokeThickness: 5
+    }).setOrigin(0.5, 1).setDepth(10);
+  }
+
   renderFighters() {
     for (const fighterId of ["p1", "p2"]) {
       const fighter = this.match.fighters[fighterId];
       const sprite = this.fighterSprites[fighterId];
+      const nameTag = this.fighterNameTags[fighterId];
+      const nameTagView = getFighterNameTagView(fighterId, fighter);
       sprite.setPosition(fighter.x, fighter.y);
       sprite.setFlipX(fighter.facing < 0);
       sprite.setAlpha(fighter.invulnerableMs > 0 && Math.floor(fighter.invulnerableMs / 120) % 2 === 0 ? 0.45 : 1);
+      nameTag.setPosition(nameTagView.x, nameTagView.y);
+      nameTag.setAlpha(sprite.alpha);
 
       const key = animationKey(fighter);
       if (sprite.anims.currentAnim?.key !== key) {

@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { FIXED_DT_MS } from "../shared/constants.js";
+import { sendLatencyAck } from "../shared/latency.js";
 import { createMatch, forfeitMatch, queueInput, stepMatch } from "../shared/match.js";
 import {
   assignPlayerId,
@@ -50,6 +51,10 @@ app.get("*", (_req, res) => {
 });
 
 io.on("connection", (socket) => {
+  socket.on("latency:ping", (_payload, ack) => {
+    sendLatencyAck(ack);
+  });
+
   socket.on("room:create", (payload, ack) => {
     const creation = canCreateRoomWithStage(payload);
     if (!creation.ok) return sendAck(ack, creation);

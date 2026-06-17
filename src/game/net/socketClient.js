@@ -1,18 +1,56 @@
 import { io } from "socket.io-client";
 
 const DEFAULT_ACK_TIMEOUT_MS = 4000;
+const DEFAULT_NOW = () => performance.now();
+const DEFAULT_LATENCY_INTERVAL_MS = 1000;
+const DEFAULT_LATENCY_TIMEOUT_MS = 1000;
 
-export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, socketFactory = io, lifecycleTarget = globalThis.window } = {}) {
+export function createSocketClient({
+  ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS,
+  socketFactory = io,
+  lifecycleTarget = globalThis.window,
+  latencyIntervalMs = DEFAULT_LATENCY_INTERVAL_MS,
+  latencyTimeoutMs = DEFAULT_LATENCY_TIMEOUT_MS,
+  now = DEFAULT_NOW
+} = {}) {
   const socket = socketFactory();
   const pendingAcks = new Set();
   const statusHandlers = new Set();
   const snapshotHandlers = new Set();
   let latestStatus = null;
   let latestSnapshot = null;
+  let pingStartedAt = null;
+  let latencyStartedAt = null;
+  let latencyTimeout = null;
+  let latencyInterval = null;
+  let latestPingMs = null;
   let disconnected = false;
 
   const handlePageHide = () => {
     disconnect();
+  };
+  const handlePing = () => {
+    pingStartedAt = now();
+  };
+  const handlePong = () => {
+    if (pingStartedAt === null) return;
+    latestPingMs = Math.max(0, now() - pingStartedAt);
+    pingStartedAt = null;
+  };
+  const measureLatency = () => {
+    if (latencyStartedAt !== null) return;
+    latencyStartedAt = now();
+    latencyTimeout = setTimeout(() => {
+      latencyStartedAt = null;
+      latencyTimeout = null;
+    }, latencyTimeoutMs);
+    socket.emit("latency:ping", {}, (response) => {
+      if (latencyStartedAt === null) return;
+      clearTimeout(latencyTimeout);
+      latencyTimeout = null;
+      if (response?.ok) latestPingMs = Math.max(0, now() - latencyStartedAt);
+      latencyStartedAt = null;
+    });
   };
 
   socket.on("room:status", (status) => {
@@ -31,6 +69,11 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
   if (typeof lifecycleTarget?.addEventListener === "function") {
     lifecycleTarget.addEventListener("pagehide", handlePageHide);
   }
+  socket.io?.on?.("ping", handlePing);
+  socket.io?.on?.("pong", handlePong);
+  if (latencyIntervalMs > 0) {
+    latencyInterval = setInterval(measureLatency, latencyIntervalMs);
+  }
 
   function disconnect() {
     if (disconnected) return;
@@ -38,6 +81,10 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
     if (typeof lifecycleTarget?.removeEventListener === "function") {
       lifecycleTarget.removeEventListener("pagehide", handlePageHide);
     }
+    socket.io?.off?.("ping", handlePing);
+    socket.io?.off?.("pong", handlePong);
+    clearInterval(latencyInterval);
+    clearTimeout(latencyTimeout);
     for (const cancel of [...pendingAcks]) {
       cancel({ ok: false, error: "Disconnected" });
     }
@@ -73,6 +120,9 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
     },
     setPaused(roomCode, paused) {
       return emitWithAck(socket, "match:pause", { roomCode, paused: Boolean(paused) }, ackTimeoutMs, pendingAcks);
+    },
+    getPingMs() {
+      return latestPingMs;
     },
     onSnapshot(handler, { replayLatest = true } = {}) {
       snapshotHandlers.add(handler);
