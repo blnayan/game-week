@@ -26,8 +26,9 @@ export function createRoomCode(existingCodes = new Set()) {
 }
 
 export function canCreateRoomWithStage(payload = {}) {
-  const stageId = normalizeStageId(payload.stageId);
-  const allowed = canCreateStageAtLevel(stageId, payload.playerLevel);
+  const safePayload = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  const stageId = normalizeStageId(safePayload.stageId);
+  const allowed = canCreateStageAtLevel(stageId, safePayload.playerLevel);
   if (!allowed.ok) return allowed;
   return { ok: true, stageId };
 }
@@ -88,6 +89,10 @@ export function createRematchRequestStatus(room, requestedBy, rematch) {
       required: rematch.required
     }
   });
+}
+
+export function createRematchMatchOptions(room) {
+  return { stageId: room?.match?.stageId };
 }
 
 export function removeSocketFromRooms(rooms, socketId, exceptRoomCode = null) {

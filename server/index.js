@@ -12,6 +12,7 @@ import {
   canJoinRoom,
   canResumeRoomPause,
   createInputRateGuard,
+  createRematchMatchOptions,
   createRoomCode,
   createRematchRequestStatus,
   normalizeRoomCode,
@@ -157,7 +158,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    room.match = createMatch("online", { stageId: room.match.stageId });
+    room.match = createMatch("online", createRematchMatchOptions(room));
     room.rematchRequests.clear();
     room.phase = "countdown";
     sendAck(ack, rematch);

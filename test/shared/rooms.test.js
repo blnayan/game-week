@@ -7,6 +7,7 @@ import {
   canJoinRoom,
   canResumeRoomPause,
   createInputRateGuard,
+  createRematchMatchOptions,
   createRoomCode,
   createRematchRequestStatus,
   normalizeRoomCode,
@@ -324,6 +325,26 @@ describe("room helpers", () => {
       ok: true,
       stageId: TRI_PLATFORM_STAGE_ID
     });
+  });
+
+  it("normalizes malformed room creation stage payloads to the default stage", () => {
+    expect(canCreateRoomWithStage(null)).toEqual({ ok: true, stageId: DEFAULT_STAGE_ID });
+    expect(canCreateRoomWithStage({})).toEqual({ ok: true, stageId: DEFAULT_STAGE_ID });
+    expect(canCreateRoomWithStage({ stageId: "bad-stage", playerLevel: 1 })).toEqual({
+      ok: true,
+      stageId: DEFAULT_STAGE_ID
+    });
+  });
+
+  it("builds rematch match options from the current room stage", () => {
+    const room = {
+      match: { status: "complete", stageId: TRI_PLATFORM_STAGE_ID },
+      players: new Map([["socket-a", "p1"], ["socket-b", "p2"]]),
+      rematchRequests: new Set(["socket-a"])
+    };
+
+    expect(recordRematchRequest(room, "socket-b")).toMatchObject({ ok: true, ready: true });
+    expect(createRematchMatchOptions(room)).toEqual({ stageId: TRI_PLATFORM_STAGE_ID });
   });
 
   it("includes stage id in public room status and snapshots", () => {
