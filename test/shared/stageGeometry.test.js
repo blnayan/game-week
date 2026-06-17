@@ -32,6 +32,12 @@ describe("stage collision geometry", () => {
     ]);
   });
 
+  it("uses one shared main platform object for tri-platform compatibility fields", () => {
+    const stage = STAGE_DEFINITIONS[TRI_PLATFORM_STAGE_ID];
+
+    expect(stage.platform).toBe(stage.platforms[0]);
+  });
+
   it("normalizes unknown stage ids back to the default stage", () => {
     expect(normalizeStageId("tri-platform")).toBe("tri-platform");
     expect(normalizeStageId("unknown-stage")).toBe(DEFAULT_STAGE_ID);
@@ -45,5 +51,27 @@ describe("stage collision geometry", () => {
       error: "Stage unlocks at level 10"
     });
     expect(canCreateStageAtLevel(TRI_PLATFORM_STAGE_ID, 10)).toEqual({ ok: true });
+  });
+
+  it("freezes nested catalog geometry used across shared systems", () => {
+    const defaultStage = STAGE_DEFINITIONS[DEFAULT_STAGE_ID];
+    const triPlatformStage = STAGE_DEFINITIONS[TRI_PLATFORM_STAGE_ID];
+
+    expect(() => {
+      defaultStage.platform.x = 1;
+    }).toThrow(TypeError);
+    expect(() => {
+      defaultStage.spawnA.x = 1;
+    }).toThrow(TypeError);
+    expect(() => {
+      defaultStage.blastZone.bottom = 1;
+    }).toThrow(TypeError);
+    expect(() => {
+      triPlatformStage.platforms[1].height = 1;
+    }).toThrow(TypeError);
+    expect(defaultStage.platform.x).toBe(200);
+    expect(defaultStage.spawnA.x).toBe(360);
+    expect(defaultStage.blastZone.bottom).toBe(940);
+    expect(triPlatformStage.platforms[1].height).toBe(28);
   });
 });
