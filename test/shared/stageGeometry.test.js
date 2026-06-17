@@ -15,21 +15,29 @@ describe("stage collision geometry", () => {
     expect(STAGE).toBe(getStageDefinition(DEFAULT_STAGE_ID));
     expect(STAGE.platform).toMatchObject({ x: 200, y: 420, width: 880, height: 36 });
     expect(STAGE.platforms).toEqual([STAGE.platform]);
+    expect(STAGE.blastZone).toEqual({ left: -180, right: 1460, top: -260, bottom: 940 });
+    expect(STAGE.spawnA).toEqual({ x: 360, y: 330, facing: 1 });
+    expect(STAGE.spawnB).toEqual({ x: 920, y: 330, facing: -1 });
   });
 
   it("defines the approved tri-platform stage geometry", () => {
-    expect(STAGE_DEFINITIONS[TRI_PLATFORM_STAGE_ID]).toMatchObject({
+    const stage = STAGE_DEFINITIONS[TRI_PLATFORM_STAGE_ID];
+
+    expect(stage).toMatchObject({
       id: "tri-platform",
       name: "Tri Platform",
       unlockLevel: 10,
       mainPlatformId: "main"
     });
-    expect(STAGE_DEFINITIONS[TRI_PLATFORM_STAGE_ID].platforms).toEqual([
+    expect(stage.platforms).toEqual([
       { id: "main", x: 200, y: 540, width: 880, height: 36 },
       { id: "left", x: 150, y: 460, width: 260, height: 28 },
       { id: "top", x: 485, y: 380, width: 310, height: 28 },
       { id: "right", x: 870, y: 460, width: 260, height: 28 }
     ]);
+    expect(stage.blastZone).toEqual({ left: -180, right: 1460, top: -260, bottom: 980 });
+    expect(stage.spawnA).toEqual({ x: 430, y: 450, facing: 1 });
+    expect(stage.spawnB).toEqual({ x: 850, y: 450, facing: -1 });
   });
 
   it("uses one shared main platform object for tri-platform compatibility fields", () => {
