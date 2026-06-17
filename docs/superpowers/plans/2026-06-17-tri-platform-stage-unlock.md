@@ -23,8 +23,9 @@
 - Create `src/game/scenes/stageSelection.js`: pure menu-stage option and selection helpers.
 - Modify `src/game/scenes/MenuScene.js`: add a map selector whose selected stage feeds CPU battle and online room creation while preserving invite auto-join.
 - Modify `src/game/scenes/MatchScene.js`: create/render matches with the selected or snapshot stage id; draw platform rectangles from shared geometry.
-- Leave `src/game/render/assetManifest.js` unchanged because rectangle rendering is enough for the first implementation.
-- Test files: `test/shared/stageGeometry.test.js`, `test/shared/match.test.js`, `test/shared/rooms.test.js`, `src/game/net/socketClient.test.js`, `src/game/progression/progressionStore.test.js`, `src/game/scenes/stageSelection.test.js`, and `src/game/scenes/menuLayout.test.js`.
+- Create `public/assets/stage/tri-platform-arena.png`: AI-generated bitmap map art for the tri-platform stage.
+- Modify `src/game/render/assetManifest.js`: load the AI-generated tri-platform stage asset.
+- Test files: `test/shared/stageGeometry.test.js`, `test/shared/match.test.js`, `test/shared/rooms.test.js`, `src/game/net/socketClient.test.js`, `src/game/progression/progressionStore.test.js`, `src/game/scenes/stageSelection.test.js`, `src/game/scenes/menuLayout.test.js`, and `src/game/render/assetManifest.test.js`.
 
 ---
 
@@ -621,6 +622,9 @@ git commit -m "Gate tri-platform room creation"
 - Create: `src/game/scenes/stageSelection.test.js`
 - Modify: `src/game/scenes/menuLayout.js`
 - Modify: `src/game/scenes/menuLayout.test.js`
+- Create: `public/assets/stage/tri-platform-arena.png`
+- Modify: `src/game/render/assetManifest.js`
+- Modify: `src/game/render/assetManifest.test.js`
 - Modify: `src/game/scenes/MenuScene.js`
 - Modify: `src/game/scenes/MatchScene.js`
 
@@ -726,15 +730,38 @@ In `src/game/net/socketClient.test.js`, add:
   });
 ```
 
+In `src/game/render/assetManifest.test.js`, update the stage image test to cover the AI-generated tri-platform asset:
+
+```js
+  it("loads stage backgrounds", () => {
+    const images = new Map();
+    const scene = {
+      load: {
+        image: (key, path) => images.set(key, path),
+        spritesheet: () => {}
+      }
+    };
+
+    loadGameAssets(scene);
+
+    expect(images.get("stage:cosmic-floating")).toBe("/assets/stage/cosmic-floating-arena.png");
+    expect(images.get("stage:tri-platform")).toBe("/assets/stage/tri-platform-arena.png");
+    expect(readPngSize(`public${images.get("stage:tri-platform")}`)).toMatchObject({
+      width: expect.any(Number),
+      height: expect.any(Number)
+    });
+  });
+```
+
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run:
 
 ```bash
-npm test -- src/game/progression/progressionStore.test.js src/game/net/socketClient.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js
+npm test -- src/game/progression/progressionStore.test.js src/game/net/socketClient.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js src/game/render/assetManifest.test.js
 ```
 
-Expected: FAIL because `canUseStage`, `stageSelection.js`, `getStageChoiceLayout`, and `createRoom` payload options do not exist.
+Expected: FAIL because `canUseStage`, `stageSelection.js`, `getStageChoiceLayout`, `stage:tri-platform`, and `createRoom` payload options do not exist.
 
 - [ ] **Step 3: Implement progression helper, socket payload, and pure stage-selection helper**
 
@@ -821,7 +848,42 @@ npm test -- src/game/progression/progressionStore.test.js src/game/net/socketCli
 
 Expected: PASS.
 
-- [ ] **Step 5: Add menu-stage layout**
+- [ ] **Step 5: Add the AI-generated tri-platform stage asset and manifest entry**
+
+Use the `imagegen` skill's built-in image generation path to create a project-bound stage bitmap. Save the final selected PNG at:
+
+```text
+public/assets/stage/tri-platform-arena.png
+```
+
+Prompt requirements:
+
+```text
+Create a game-ready 16:9 2D platform-fighter stage background, no characters and no text. The image should show a bright floating ruins arena in the sky with one wide lower horizontal platform and three smaller floating horizontal platforms in a Battlefield / Super Smash Bros. layout. Place the main platform low in the lower quarter, the left and right mini platforms lower-middle, and the top mini platform above them with open space between all platforms. Style: colorful pixel-art inspired digital painting, crisp clean silhouettes, ancient stone slabs with gold metal trim, moss, subtle cyan energy accents, blue sky, clouds, distant mountains. The platforms must look clean and horizontal so exact hitbox-aligned platform rectangles can be overlaid later. No UI, no labels, no watermark, no characters, no logos.
+```
+
+Important:
+- Do not reference an image from `$HOME/.codex/generated_images` directly in code.
+- Move or copy the selected generated PNG into `public/assets/stage/tri-platform-arena.png`.
+- The AI bitmap is visual art only. Physics and exact platform overlay still come from `shared/stages.js`.
+
+In `src/game/render/assetManifest.js`, add:
+
+```js
+  scene.load.image("stage:tri-platform", "/assets/stage/tri-platform-arena.png");
+```
+
+- [ ] **Step 6: Run asset manifest tests**
+
+Run:
+
+```bash
+npm test -- src/game/render/assetManifest.test.js
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Add menu-stage layout**
 
 In `src/game/scenes/menuLayout.js`, add this `STAGE_CHOICES` object after `BUTTONS`:
 
@@ -872,7 +934,7 @@ export function getStageChoiceLayout(stageId) {
 }
 ```
 
-- [ ] **Step 6: Run menu layout tests**
+- [ ] **Step 8: Run menu layout tests**
 
 Run:
 
@@ -882,7 +944,7 @@ npm test -- src/game/scenes/menuLayout.test.js
 
 Expected: PASS.
 
-- [ ] **Step 7: Implement menu picker and match rendering**
+- [ ] **Step 9: Implement menu picker and match rendering**
 
 In `src/game/scenes/MenuScene.js`, import stage ids:
 
@@ -1006,6 +1068,12 @@ Set stage id before `createMatch`:
     this.match = createMatch(this.mode, { stageId: this.stageId });
 ```
 
+Replace the hardcoded stage background creation with:
+
+```js
+    this.stageBackground = this.add.image(WIDTH / 2, HEIGHT / 2, getStageAssetKey(this.stageId)).setDisplaySize(WIDTH, HEIGHT);
+```
+
 When creating online rooms, replace:
 
 ```js
@@ -1025,6 +1093,7 @@ When receiving snapshots, preserve stage id:
 ```js
       this.match = snapshot;
       this.stageId = snapshot.stageId || this.stageId;
+      this.stageBackground?.setTexture(getStageAssetKey(this.stageId));
       this.renderStagePlatforms();
 ```
 
@@ -1051,20 +1120,28 @@ Add method:
   }
 ```
 
-- [ ] **Step 8: Run focused client tests**
+Add this helper at the bottom of `MatchScene.js`:
+
+```js
+function getStageAssetKey(stageId) {
+  return stageId === "tri-platform" ? "stage:tri-platform" : "stage:cosmic-floating";
+}
+```
+
+- [ ] **Step 10: Run focused client tests**
 
 Run:
 
 ```bash
-npm test -- src/game/progression/progressionStore.test.js src/game/net/socketClient.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js
+npm test -- src/game/progression/progressionStore.test.js src/game/net/socketClient.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js src/game/render/assetManifest.test.js
 ```
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add src/game/progression/progressionStore.js src/game/progression/progressionStore.test.js src/game/net/socketClient.js src/game/net/socketClient.test.js src/game/scenes/stageSelection.js src/game/scenes/stageSelection.test.js src/game/scenes/MenuScene.js src/game/scenes/MatchScene.js src/game/scenes/menuLayout.js src/game/scenes/menuLayout.test.js
+git add public/assets/stage/tri-platform-arena.png src/game/progression/progressionStore.js src/game/progression/progressionStore.test.js src/game/net/socketClient.js src/game/net/socketClient.test.js src/game/scenes/stageSelection.js src/game/scenes/stageSelection.test.js src/game/scenes/MenuScene.js src/game/scenes/MatchScene.js src/game/scenes/menuLayout.js src/game/scenes/menuLayout.test.js src/game/render/assetManifest.js src/game/render/assetManifest.test.js
 git commit -m "Add tri-platform client selection"
 ```
 
@@ -1081,7 +1158,7 @@ git commit -m "Add tri-platform client selection"
 Run:
 
 ```bash
-npm test -- test/shared/stageGeometry.test.js test/shared/match.test.js test/shared/rooms.test.js src/game/net/socketClient.test.js src/game/progression/progressionStore.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js
+npm test -- test/shared/stageGeometry.test.js test/shared/match.test.js test/shared/rooms.test.js src/game/net/socketClient.test.js src/game/progression/progressionStore.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js src/game/render/assetManifest.test.js
 ```
 
 Expected: PASS.
@@ -1125,10 +1202,10 @@ Check these flows:
 2. Below level 10, clicking the locked Tri Platform map keeps Cosmic Floating selected and shows the level 10 notice.
 3. Below level 10, Create Online Room still creates a Cosmic Floating room.
 4. With local storage set to at least {"xp":2700,"level":10}, Tri Platform can be selected in the map picker.
-5. After selecting Tri Platform at level 10, CPU Battle starts on the tri-platform stage.
-6. After selecting Tri Platform at level 10, Create Online Room creates a tri-platform room.
+5. After selecting Tri Platform at level 10, CPU Battle starts on the AI-generated tri-platform stage art.
+6. After selecting Tri Platform at level 10, Create Online Room creates a tri-platform room using the AI-generated stage art.
 7. The invite link for a tri-platform room can be opened in a lower-level browser profile and joins successfully.
-8. Both online clients render the same tri-platform layout.
+8. Both online clients render the same AI-generated tri-platform layout.
 9. Fighters land on the main, left, top, and right platforms exactly on the visible ledges.
 10. A rematch keeps the tri-platform stage.
 ```
@@ -1148,6 +1225,6 @@ If no fixes were needed, do not create an empty commit.
 
 ## Self-Review
 
-- Spec coverage: The plan covers shared geometry, collision, rendering, menu map selection for CPU and online creation, room creation unlocks, invite joins below level 10, snapshots/status `stageId`, rematch persistence, tests, and manual verification.
+- Spec coverage: The plan covers shared geometry, collision, AI-generated stage art, rendering, menu map selection for CPU and online creation, room creation unlocks, invite joins below level 10, snapshots/status `stageId`, rematch persistence, tests, and manual verification.
 - Placeholder scan: Clear.
 - Type consistency: The plan consistently uses `stageId`, `DEFAULT_STAGE_ID`, `TRI_PLATFORM_STAGE_ID`, `getStageDefinition`, `normalizeStageId`, `canCreateStageAtLevel`, `canCreateRoomWithStage`, `canUseStage`, `getMenuStageOptions`, and `resolveMenuStageSelection`.

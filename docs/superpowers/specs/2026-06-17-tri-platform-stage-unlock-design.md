@@ -37,11 +37,11 @@ The CPU recovery helper should use the active stage's main platform rather than 
 
 ## Rendering
 
-The Phaser client should render the active stage from the same stage definition used by physics. For the new stage, simple platform sprites or rectangles are acceptable because exact hitbox alignment matters more than decorative art in this pass.
+The tri-platform map must use an AI-generated bitmap asset committed in the project. The asset should be saved as `public/assets/stage/tri-platform-arena.png` and loaded by Phaser with a stable key such as `stage:tri-platform`.
 
-The renderer should draw each platform directly from its rectangle. This makes "hitboxes align perfectly" testable: there is no second set of hand-tuned visual coordinates.
+The generated art is the visual map backdrop. It should show the same one-large-platform and three-mini-platform layout, but it must not become the source of physics truth because generated images cannot guarantee pixel-perfect geometry.
 
-The existing background image can remain behind the platforms unless a separate background asset is already trivial to add.
+The renderer should still draw exact platform surfaces directly from the shared rectangle definitions on top of the AI-generated art. This makes "hitboxes align perfectly" testable: there is no second set of hand-tuned visual coordinates. The AI bitmap provides art direction and background, while the shared stage catalog remains the source of truth for hitboxes.
 
 ## Online Rooms
 
@@ -93,6 +93,7 @@ Focused tests should cover:
 - Socket client `createRoom` sends `stageId` and `playerLevel`.
 - Menu stage selection keeps locked maps visible but unselectable below level 10.
 - CPU battle and online room creation use the selected stage id.
+- The tri-platform stage loads an AI-generated bitmap from `public/assets/stage/tri-platform-arena.png`.
 - Invite auto-join remains available below level 10.
 
 Verification should run focused tests first, then the full suite and build:
@@ -101,11 +102,11 @@ Verification should run focused tests first, then the full suite and build:
 - `npm test`
 - `npm run build`
 
-Manual verification should confirm the menu map picker shows `Cosmic Floating` selected and `Tri Platform` locked below level 10, confirm clicking the locked map keeps the default selected, force or earn level 10, select `Tri Platform`, start CPU Battle on that map, create a tri-platform online room, join it from another browser with a lower-level profile through the invite link, and confirm both players stand on each visible platform exactly where it is drawn.
+Manual verification should confirm the menu map picker shows `Cosmic Floating` selected and `Tri Platform` locked below level 10, confirm clicking the locked map keeps the default selected, force or earn level 10, select `Tri Platform`, start CPU Battle on that AI-generated map, create a tri-platform online room, join it from another browser with a lower-level profile through the invite link, and confirm both players stand on each visible platform exactly where it is drawn.
 
 ## Out Of Scope
 
-This change does not add accounts, server-side persistent progression, matchmaking, a dedicated full-screen stage-select scene, or custom art beyond what is needed to make the platforms visible and aligned.
+This change does not add accounts, server-side persistent progression, matchmaking, or a dedicated full-screen stage-select scene. It does add the required AI-generated tri-platform stage bitmap.
 
 ## Self-Review
 
@@ -114,6 +115,7 @@ This change does not add accounts, server-side persistent progression, matchmaki
 - The approved lowered geometry is recorded with exact coordinates.
 - The design avoids separate visual and collision coordinates.
 - Menu map selection is explicit and applies before choosing CPU or online creation.
+- The tri-platform stage explicitly requires a committed AI-generated bitmap asset.
 - Joining by invite is explicitly allowed below level 10.
 - Rematch stage persistence is covered.
-- The test plan covers catalog data, collision behavior, menu stage selection, room gating, socket payloads, selected-stage CPU/online starts, and invite joins.
+- The test plan covers catalog data, collision behavior, menu stage selection, AI stage art loading, room gating, socket payloads, selected-stage CPU/online starts, and invite joins.
