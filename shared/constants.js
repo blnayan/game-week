@@ -1,14 +1,11 @@
+import { getStageDefinition } from "./stages.js";
+
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 export const TICK_RATE = 60;
 export const FIXED_DT_MS = 1000 / TICK_RATE;
 
-export const STAGE = {
-  platform: { x: 200, y: 420, width: 880, height: 36 },
-  blastZone: { left: -180, right: 1460, top: -260, bottom: 940 },
-  spawnA: { x: 360, y: 330, facing: 1 },
-  spawnB: { x: 920, y: 330, facing: -1 }
-};
+export const STAGE = getStageDefinition();
 
 export const PHYSICS = {
   gravity: 0.75,
