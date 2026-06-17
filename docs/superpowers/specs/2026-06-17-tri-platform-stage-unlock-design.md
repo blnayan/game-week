@@ -60,11 +60,15 @@ Rematches should keep the room's current stage id.
 
 ## Menu Flow
 
-The menu should expose the new stage as an online room creation choice after level 10. A level 1-9 player should still see that the stage exists and is locked at level 10, but attempting to create a room with it should be disabled or should show a clear menu notice.
+The menu should expose maps as a pickable selector before the player chooses a match mode. The selector should include `Cosmic Floating` and `Tri Platform`.
 
-The existing "Create Online Room" flow can continue to create the default stage. The tri-platform stage can be added as a second create-room button or a compact stage selector, whichever fits the existing menu layout with minimal disruption.
+A level 1-9 player should still see `Tri Platform`, but it should be locked with level 10 text. Clicking the locked map should keep the current selection on the default map and show a clear menu notice. At level 10 or higher, `Tri Platform` becomes selectable.
+
+The selected map should apply to both `CPU Battle` and `Create Online Room`. `Create Online Room` sends the selected `stageId` and the creator's level to the server. `CPU Battle` starts a local match on the selected stage.
 
 Invite auto-join should remain unchanged: if the URL has a room code, the menu immediately joins that room even when local progression is below level 10.
+
+`Join Online Room` should ignore the local map selector because the server room's `stageId` is authoritative. The joining client should render whatever stage arrives in the room snapshot.
 
 ## Progression
 
@@ -87,19 +91,21 @@ Focused tests should cover:
 - Room join eligibility ignores the joiner's level.
 - Public room status and match snapshots include `stageId`.
 - Socket client `createRoom` sends `stageId` and `playerLevel`.
+- Menu stage selection keeps locked maps visible but unselectable below level 10.
+- CPU battle and online room creation use the selected stage id.
 - Invite auto-join remains available below level 10.
 
 Verification should run focused tests first, then the full suite and build:
 
-- `npm test -- test/shared/stageGeometry.test.js test/shared/match.test.js test/shared/rooms.test.js src/game/net/socketClient.test.js src/game/progression/progressionStore.test.js`
+- `npm test -- test/shared/stageGeometry.test.js test/shared/match.test.js test/shared/rooms.test.js src/game/net/socketClient.test.js src/game/progression/progressionStore.test.js src/game/scenes/stageSelection.test.js src/game/scenes/menuLayout.test.js`
 - `npm test`
 - `npm run build`
 
-Manual verification should create a default room below level 10, confirm tri-platform room creation is blocked below level 10, force or earn level 10, create a tri-platform room, join it from another browser with a lower-level profile through the invite link, and confirm both players stand on each visible platform exactly where it is drawn.
+Manual verification should confirm the menu map picker shows `Cosmic Floating` selected and `Tri Platform` locked below level 10, confirm clicking the locked map keeps the default selected, force or earn level 10, select `Tri Platform`, start CPU Battle on that map, create a tri-platform online room, join it from another browser with a lower-level profile through the invite link, and confirm both players stand on each visible platform exactly where it is drawn.
 
 ## Out Of Scope
 
-This change does not add accounts, server-side persistent progression, matchmaking, a full stage-select screen for CPU mode, or custom art beyond what is needed to make the platforms visible and aligned.
+This change does not add accounts, server-side persistent progression, matchmaking, a dedicated full-screen stage-select scene, or custom art beyond what is needed to make the platforms visible and aligned.
 
 ## Self-Review
 
@@ -107,6 +113,7 @@ This change does not add accounts, server-side persistent progression, matchmaki
 - The unlock rule is explicit: level 10 gates creation only.
 - The approved lowered geometry is recorded with exact coordinates.
 - The design avoids separate visual and collision coordinates.
+- Menu map selection is explicit and applies before choosing CPU or online creation.
 - Joining by invite is explicitly allowed below level 10.
 - Rematch stage persistence is covered.
-- The test plan covers catalog data, collision behavior, room gating, socket payloads, and invite joins.
+- The test plan covers catalog data, collision behavior, menu stage selection, room gating, socket payloads, selected-stage CPU/online starts, and invite joins.
