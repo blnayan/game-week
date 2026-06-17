@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_STAGE_ID, TRI_PLATFORM_STAGE_ID } from "../../../shared/stages.js";
 import {
   getMenuStageOptions,
-  getStageChoiceViewModel,
+  getStagePreviewCardViewModel,
+  getStageSelectorButtonViewModel,
   MENU_STAGE_IDS,
   resolveMenuStageSelection
 } from "./stageSelection.js";
@@ -51,13 +52,23 @@ describe("stage selection", () => {
     });
   });
 
-  it("uses option labels when building rendered menu controls", () => {
-    expect(getStageChoiceViewModel({
+  it("shows the current stage on the collapsed stage selector button", () => {
+    expect(getStageSelectorButtonViewModel(TRI_PLATFORM_STAGE_ID)).toMatchObject({
+      label: "Stage: Tri Platform"
+    });
+  });
+
+  it("uses option labels and preview assets when building rendered stage cards", () => {
+    expect(getStagePreviewCardViewModel({
+      stageId: TRI_PLATFORM_STAGE_ID,
       label: "Tri Platform - Level 10",
       locked: true,
-      selected: false
+      selected: false,
+      unlockLevel: 10
     })).toMatchObject({
-      label: "Tri Platform - Level 10",
+      title: "Tri Platform - Level 10",
+      imageKey: "stage:tri-platform",
+      badgeLabel: "Level 10",
       textColor: "#d8dee9"
     });
   });

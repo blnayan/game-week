@@ -30,10 +30,10 @@ describe("stage collision geometry", () => {
       mainPlatformId: "main"
     });
     expect(stage.platforms).toEqual([
-      { id: "main", x: 76, y: 540, width: 1128, height: 40 },
-      { id: "left", x: 108, y: 381, width: 350, height: 30 },
-      { id: "top", x: 471, y: 191, width: 338, height: 28 },
-      { id: "right", x: 828, y: 381, width: 350, height: 30 }
+      { id: "main", x: 100, y: 554, width: 1080, height: 40 },
+      { id: "left", x: 140, y: 374, width: 316, height: 40 },
+      { id: "top", x: 472, y: 178, width: 336, height: 42 },
+      { id: "right", x: 830, y: 374, width: 316, height: 40 }
     ]);
     expect(stage.blastZone).toEqual({ left: -180, right: 1460, top: -260, bottom: 980 });
     expect(stage.spawnA).toEqual({ x: 430, y: 450, facing: 1 });
@@ -80,6 +80,6 @@ describe("stage collision geometry", () => {
     expect(defaultStage.platform.x).toBe(200);
     expect(defaultStage.spawnA.x).toBe(360);
     expect(defaultStage.blastZone.bottom).toBe(940);
-    expect(triPlatformStage.platforms[1].height).toBe(30);
+    expect(triPlatformStage.platforms[1].height).toBe(40);
   });
 });

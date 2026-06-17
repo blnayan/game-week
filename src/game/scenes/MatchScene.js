@@ -1,7 +1,6 @@
 import Phaser from "phaser";
-import { chooseCpuInput } from "../../../shared/cpu.js";
-import { createMatch, forfeitMatch, queueInput, stepMatch } from "../../../shared/match.js";
-import { DEFAULT_STAGE_ID, getStageDefinition } from "../../../shared/stages.js";
+import { createMatch, forfeitMatch } from "../../../shared/match.js";
+import { DEFAULT_STAGE_ID } from "../../../shared/stages.js";
 import { createKeyboardInput } from "../input/inputMapper.js";
 import { createOnlineInputLatch } from "@game/net/onlineInputLatch.js";
 import { buildRoomLink, clearRoomCodeFromUrl, shouldClearRoomCodeAfterJoin } from "@game/net/roomLinks.js";
@@ -10,6 +9,8 @@ import { getOnlineOverlayState, shouldUnlockOnlineRoundFromSnapshot } from "./ma
 import { animationKey } from "../render/animationMap.js";
 import { FIGHTER_FRAME_BASELINE, FIGHTER_FRAME_HEIGHT, getStageAssetKey } from "../render/assetManifest.js";
 import { EFFECT_RENDER_SCALE, FIGHTER_RENDER_SCALE } from "../render/renderScale.js";
+import { renderStageView } from "./stageRender.js";
+import { stepCpuMatchFrame } from "./cpuFrame.js";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -27,6 +28,7 @@ export class MatchScene extends Phaser.Scene {
     this.roomCode = data.roomCode || "";
     this.playerPalette = data.playerPalette;
     this.stageId = data.stageId || DEFAULT_STAGE_ID;
+    this.showPlatformHitboxes = Boolean(data.debugPlatforms);
     this.match = createMatch(this.mode, { stageId: this.stageId });
     if (this.mode === "cpu" && data.playerPalette) {
       this.match.fighters.p1.palette = data.playerPalette;
@@ -41,6 +43,7 @@ export class MatchScene extends Phaser.Scene {
     this.localPaused = false;
     this.roundActive = this.mode === "cpu";
     this.overlayLocked = false;
+    this.cpuStepRemainderMs = 0;
 
     this.stageBackground = this.add.image(WIDTH / 2, HEIGHT / 2, getStageAssetKey(this.stageId)).setDisplaySize(WIDTH, HEIGHT);
     this.platformGraphics = this.add.graphics();
@@ -80,9 +83,7 @@ export class MatchScene extends Phaser.Scene {
       return;
     }
 
-    queueInput(this.match, "p1", input);
-    queueInput(this.match, "p2", chooseCpuInput(this.match, "p2", "normal"));
-    stepMatch(this.match, Math.min(delta, 50));
+    this.cpuStepRemainderMs = stepCpuMatchFrame(this.match, input, delta, this.cpuStepRemainderMs);
 
     this.renderFighters();
     this.renderEffects();
@@ -220,15 +221,12 @@ export class MatchScene extends Phaser.Scene {
   }
 
   renderStage() {
-    this.stageBackground?.setTexture(getStageAssetKey(this.match?.stageId || this.stageId));
-    this.platformGraphics?.clear();
-    this.platformGraphics?.fillStyle(0xe2edf4, 0.18);
-    this.platformGraphics?.lineStyle(2, 0xf4d46a, 0.95);
-
-    for (const platform of getStageDefinition(this.match?.stageId || this.stageId).platforms) {
-      this.platformGraphics?.fillRect(platform.x, platform.y, platform.width, platform.height);
-      this.platformGraphics?.strokeRect(platform.x, platform.y, platform.width, platform.height);
-    }
+    renderStageView({
+      stageBackground: this.stageBackground,
+      platformGraphics: this.platformGraphics,
+      stageId: this.match?.stageId || this.stageId,
+      showPlatformHitboxes: this.showPlatformHitboxes
+    });
   }
 
   createModalButton(x, y, label, onClick) {

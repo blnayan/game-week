@@ -7,6 +7,7 @@
     "dev": "concurrently \"vite --host 0.0.0.0\" \"nodemon server/index.js\"",
     "build": "vite build",
     "start": "node server/index.js",
+    "profile:multiplayer": "node scripts/profile-multiplayer.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

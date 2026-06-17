@@ -3,7 +3,7 @@ export const TRI_PLATFORM_STAGE_ID = "tri-platform";
 export const TRI_PLATFORM_UNLOCK_LEVEL = 10;
 
 const DEFAULT_MAIN_PLATFORM = Object.freeze({ id: "main", x: 200, y: 420, width: 880, height: 36 });
-const TRI_MAIN_PLATFORM = Object.freeze({ id: "main", x: 76, y: 540, width: 1128, height: 40 });
+const TRI_MAIN_PLATFORM = Object.freeze({ id: "main", x: 100, y: 554, width: 1080, height: 40 });
 
 export const STAGE_DEFINITIONS = Object.freeze({
   [DEFAULT_STAGE_ID]: Object.freeze({
@@ -25,9 +25,9 @@ export const STAGE_DEFINITIONS = Object.freeze({
     platform: TRI_MAIN_PLATFORM,
     platforms: Object.freeze([
       TRI_MAIN_PLATFORM,
-      Object.freeze({ id: "left", x: 108, y: 381, width: 350, height: 30 }),
-      Object.freeze({ id: "top", x: 471, y: 191, width: 338, height: 28 }),
-      Object.freeze({ id: "right", x: 828, y: 381, width: 350, height: 30 })
+      Object.freeze({ id: "left", x: 140, y: 374, width: 316, height: 40 }),
+      Object.freeze({ id: "top", x: 472, y: 178, width: 336, height: 42 }),
+      Object.freeze({ id: "right", x: 830, y: 374, width: 316, height: 40 })
     ]),
     blastZone: Object.freeze({ left: -180, right: 1460, top: -260, bottom: 980 }),
     spawnA: Object.freeze({ x: 430, y: 450, facing: 1 }),

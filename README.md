@@ -53,6 +53,17 @@ Phaser Scenes manage app flow: boot, menu, match, HUD, and results. Fighter game
 
 Socket.IO rooms map directly to match rooms. A room has two player slots, one match instance, and a fixed server tick. Disconnects notify the remaining player, and empty rooms are cleaned up.
 
+## Multiplayer Performance Profile
+
+Measured locally on June 16, 2026 with `npm run profile:multiplayer` using 16 active online rooms, 32 Socket.IO clients, and 60 Hz input from every client for 15 seconds after countdown.
+
+- Server tick target: 60 Hz / 16.67 ms fixed timestep.
+- Snapshot delivery interval: 16.85 ms average, 18.36 ms p95.
+- Snapshot volume: 28,514 samples captured out of roughly 28,804 expected.
+- Snapshot payload size: 1,014 bytes average, 1,112 bytes p95.
+- Room setup acks: 0.17 ms average for create, 0.20 ms average for join.
+- Server process usage: 14.5% CPU average, 24.3% CPU max, 87.4 MB RSS average, 88.5 MB RSS max.
+
 ## CPU Design
 
 The CPU chooses compact input packets from match state. It approaches when far, uses light and heavy attacks in range, dives when airborne above the opponent, and jumps back toward the platform when recovering.
@@ -74,7 +85,7 @@ See [docs/learning-log.md](docs/learning-log.md) for the Brainlift-style progres
 ## Submission Status
 
 - Working game: complete and deployed on a VPS.
-- Multiplayer: complete and stress tested; evidence was posted on GitLab.
+- Multiplayer: complete and stress tested; local profiling evidence is documented above.
 - Progression: complete through local XP and palette unlocks.
 - Docker: verified through the VPS deployment.
 - Repository: published to GitLab.
