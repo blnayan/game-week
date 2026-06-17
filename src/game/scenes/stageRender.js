@@ -1,6 +1,9 @@
 import { getStageDefinition } from "../../../shared/stages.js";
 import { getStageAssetKey } from "../render/assetManifest.js";
 
+export const STAGE_VIEW_WIDTH = 1280;
+export const STAGE_VIEW_HEIGHT = 720;
+
 export function renderStageView({
   stageBackground,
   platformGraphics,
@@ -8,6 +11,7 @@ export function renderStageView({
   showPlatformHitboxes = false
 } = {}) {
   stageBackground?.setTexture(getStageAssetKey(stageId));
+  stageBackground?.setDisplaySize(STAGE_VIEW_WIDTH, STAGE_VIEW_HEIGHT);
   platformGraphics?.clear();
 
   if (!showPlatformHitboxes || !platformGraphics) return;

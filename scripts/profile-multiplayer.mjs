@@ -1,13 +1,12 @@
-import { spawn, execFileSync } from "node:child_process";
+import { spawn, execFile, execFileSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { performance } from "node:perf_hooks";
 import { io } from "socket.io-client";
 
-const roomCount = Number(process.env.PROFILE_ROOMS || 16);
-const durationMs = Number(process.env.PROFILE_DURATION_MS || 15000);
-const inputHz = Number(process.env.PROFILE_INPUT_HZ || 60);
-const port = Number(process.env.PROFILE_PORT || 4317);
-const serverUrl = `http://127.0.0.1:${port}`;
+import { resolveProfileConfig } from "./profileMultiplayerConfig.mjs";
+import { createSnapshotRecorder } from "./profileMultiplayerMetrics.mjs";
+
+const config = resolveProfileConfig();
 
 const samples = {
   snapshots: [],
@@ -17,22 +16,27 @@ const samples = {
   createAckMs: [],
   joinAckMs: []
 };
+const snapshotRecorders = new Set();
 
-const serverProcess = spawn(process.execPath, ["server/index.js"], {
-  env: { ...process.env, PORT: String(port) },
-  stdio: ["ignore", "pipe", "pipe"]
-});
+const serverProcess = config.shouldStartLocalServer
+  ? spawn(process.execPath, ["server/index.js"], {
+      env: { ...process.env, PORT: String(config.port) },
+      stdio: ["ignore", "pipe", "pipe"]
+    })
+  : null;
 
 let serverOutput = "";
-serverProcess.stdout.on("data", (chunk) => {
-  serverOutput += chunk.toString();
-});
-serverProcess.stderr.on("data", (chunk) => {
-  serverOutput += chunk.toString();
-});
+if (serverProcess) {
+  serverProcess.stdout.on("data", (chunk) => {
+    serverOutput += chunk.toString();
+  });
+  serverProcess.stderr.on("data", (chunk) => {
+    serverOutput += chunk.toString();
+  });
+}
 
 process.on("exit", () => {
-  serverProcess.kill();
+  serverProcess?.kill();
 });
 
 try {
@@ -42,22 +46,25 @@ try {
   const psTimer = startProcessSampler();
 
   await waitForPlaying(rooms);
+  for (const recorder of snapshotRecorders) recorder.start();
   const measurementStart = performance.now();
-  await delay(durationMs);
+  await delay(config.durationMs);
   const measurementEnd = performance.now();
+  for (const recorder of snapshotRecorders) recorder.stop();
 
   clearInterval(inputTimer);
-  clearInterval(psTimer);
+  if (psTimer) clearInterval(psTimer);
   for (const room of rooms) {
     room.p1.disconnect();
     room.p2.disconnect();
   }
 
   printReport({
-    roomCount,
-    clients: roomCount * 2,
+    target: config.serverUrl,
+    roomCount: config.roomCount,
+    clients: config.roomCount * 2,
     durationMs: measurementEnd - measurementStart,
-    inputHz,
+    inputHz: config.inputHz,
     snapshotIntervals: getSnapshotIntervals(samples.snapshots),
     payloadBytes: samples.payloadBytes,
     cpu: samples.cpu,
@@ -73,28 +80,28 @@ try {
   }
   process.exitCode = 1;
 } finally {
-  serverProcess.kill();
+  serverProcess?.kill();
 }
 
 async function waitForServer() {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${serverUrl}/health`);
+      const response = await fetch(`${config.serverUrl}/health`);
       if (response.ok) return;
     } catch {
-      // Keep polling until the child server is listening.
+      // Keep polling until the target server is listening.
     }
     await delay(100);
   }
-  throw new Error(`Server did not start on ${serverUrl}`);
+  throw new Error(`Server did not respond on ${config.serverUrl}`);
 }
 
 async function createRooms() {
   const rooms = [];
-  for (let i = 0; i < roomCount; i += 1) {
-    const p1 = createClient(`room-${i}-p1`);
-    const p2 = createClient(`room-${i}-p2`);
+  for (let i = 0; i < config.roomCount; i += 1) {
+    const p1 = createClient();
+    const p2 = createClient();
     await Promise.all([p1.connected, p2.connected]);
 
     const createStart = performance.now();
@@ -112,13 +119,14 @@ async function createRooms() {
   return rooms;
 }
 
-function createClient(label) {
-  const socket = io(serverUrl, {
+function createClient() {
+  const socket = io(config.serverUrl, {
     transports: ["websocket"],
     reconnection: false,
     timeout: 4000
   });
-  let lastSnapshotAt = null;
+  const snapshotRecorder = createSnapshotRecorder(samples);
+  snapshotRecorders.add(snapshotRecorder);
 
   const connected = new Promise((resolve, reject) => {
     socket.once("connect", resolve);
@@ -126,20 +134,16 @@ function createClient(label) {
   });
 
   socket.on("match:snapshot", (snapshot) => {
-    const now = performance.now();
-    if (snapshot.phase === "playing") {
-      samples.payloadBytes.push(Buffer.byteLength(JSON.stringify(snapshot)));
-      if (lastSnapshotAt !== null) {
-        samples.snapshots.push({ label, intervalMs: now - lastSnapshotAt });
-      }
-      lastSnapshotAt = now;
-    }
+    snapshotRecorder.record(snapshot, performance.now());
   });
 
   return {
     socket,
     connected,
-    disconnect: () => socket.disconnect()
+    disconnect: () => {
+      snapshotRecorders.delete(snapshotRecorder);
+      socket.disconnect();
+    }
   };
 }
 
@@ -186,16 +190,33 @@ function startInputLoop(rooms) {
         }
       });
     }
-  }, 1000 / inputHz);
+  }, 1000 / config.inputHz);
 }
 
 function startProcessSampler() {
+  if (!serverProcess && !config.dockerContainerName) return null;
+  let dockerStatsPending = false;
+
   return setInterval(() => {
-    const stats = readProcessStats(serverProcess.pid);
-    if (!stats) return;
-    samples.cpu.push(stats.cpu);
-    samples.rssMb.push(stats.rssMb);
+    if (config.dockerContainerName) {
+      if (dockerStatsPending) return;
+      dockerStatsPending = true;
+      readDockerStats(config.dockerContainerName)
+        .then(recordResourceStats)
+        .finally(() => {
+          dockerStatsPending = false;
+        });
+      return;
+    }
+
+    recordResourceStats(readProcessStats(serverProcess.pid));
   }, 500);
+}
+
+function recordResourceStats(stats) {
+  if (!stats) return;
+  samples.cpu.push(stats.cpu);
+  samples.rssMb.push(stats.rssMb);
 }
 
 function readProcessStats(pid) {
@@ -209,6 +230,40 @@ function readProcessStats(pid) {
   } catch {
     return null;
   }
+}
+
+function readDockerStats(containerName) {
+  return new Promise((resolve) => {
+    execFile(
+      "docker",
+      ["stats", "--no-stream", "--format", "{{.CPUPerc}}|{{.MemUsage}}", containerName],
+      { encoding: "utf8" },
+      (error, stdout) => {
+        if (error) return resolve(null);
+
+        const output = stdout.trim();
+        if (!output) return resolve(null);
+
+        const [cpuText, memoryText] = output.split("|");
+        resolve({
+          cpu: Number(cpuText.replace("%", "")),
+          rssMb: parseMemoryMb(memoryText.split("/")[0].trim())
+        });
+      }
+    );
+  });
+}
+
+function parseMemoryMb(value) {
+  const match = value.match(/^([\d.]+)\s*([KMGT]?i?B)$/i);
+  if (!match) return 0;
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (unit === "kb" || unit === "kib") return amount / 1024;
+  if (unit === "gb" || unit === "gib") return amount * 1024;
+  if (unit === "tb" || unit === "tib") return amount * 1024 * 1024;
+  return amount;
 }
 
 function emitWithAck(socket, event, payload) {
@@ -230,6 +285,7 @@ function printReport(report) {
   const expectedSnapshots = Math.round((report.durationMs / 1000) * 60 * report.clients);
 
   console.log("Multiplayer performance profile");
+  console.log(`Target: ${report.target}`);
   console.log(`Rooms: ${report.roomCount}`);
   console.log(`Clients: ${report.clients}`);
   console.log(`Duration: ${(report.durationMs / 1000).toFixed(1)}s`);
@@ -241,10 +297,15 @@ function printReport(report) {
   console.log(`Snapshot payload p95: ${percentile(report.payloadBytes, 95).toFixed(0)} bytes`);
   console.log(`Create room ack avg: ${mean(report.createAckMs).toFixed(2)}ms`);
   console.log(`Join room ack avg: ${mean(report.joinAckMs).toFixed(2)}ms`);
-  console.log(`Server CPU avg: ${mean(report.cpu).toFixed(1)}%`);
-  console.log(`Server CPU max: ${Math.max(...report.cpu).toFixed(1)}%`);
-  console.log(`Server RSS avg: ${mean(report.rssMb).toFixed(1)}MB`);
-  console.log(`Server RSS max: ${Math.max(...report.rssMb).toFixed(1)}MB`);
+  console.log(formatMetric("Server CPU avg", report.cpu, (values) => `${mean(values).toFixed(1)}%`));
+  console.log(formatMetric("Server CPU max", report.cpu, (values) => `${Math.max(...values).toFixed(1)}%`));
+  console.log(formatMetric("Server RSS avg", report.rssMb, (values) => `${mean(values).toFixed(1)}MB`));
+  console.log(formatMetric("Server RSS max", report.rssMb, (values) => `${Math.max(...values).toFixed(1)}MB`));
+}
+
+function formatMetric(label, values, formatter) {
+  if (!values.length) return `${label}: not sampled`;
+  return `${label}: ${formatter(values)}`;
 }
 
 function mean(values) {

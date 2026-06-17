@@ -6,7 +6,10 @@ function createStageView({ showPlatformHitboxes = false } = {}) {
   return {
     stageId: TRI_PLATFORM_STAGE_ID,
     showPlatformHitboxes,
-    stageBackground: { setTexture: vi.fn() },
+    stageBackground: {
+      setTexture: vi.fn(),
+      setDisplaySize: vi.fn()
+    },
     platformGraphics: {
       clear: vi.fn(),
       fillStyle: vi.fn(),
@@ -27,5 +30,14 @@ describe("stage rendering", () => {
     expect(view.platformGraphics.clear).toHaveBeenCalledOnce();
     expect(view.platformGraphics.fillRect).not.toHaveBeenCalled();
     expect(view.platformGraphics.strokeRect).not.toHaveBeenCalled();
+  });
+
+  it("keeps stage art at the fixed game size after texture changes", () => {
+    const view = createStageView();
+
+    renderStageView(view);
+
+    expect(view.stageBackground.setTexture).toHaveBeenCalledWith("stage:tri-platform");
+    expect(view.stageBackground.setDisplaySize).toHaveBeenCalledWith(1280, 720);
   });
 });

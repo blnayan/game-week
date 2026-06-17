@@ -55,14 +55,14 @@ Socket.IO rooms map directly to match rooms. A room has two player slots, one ma
 
 ## Multiplayer Performance Profile
 
-Measured locally on June 16, 2026 with `npm run profile:multiplayer` using 16 active online rooms, 32 Socket.IO clients, and 60 Hz input from every client for 15 seconds after countdown.
+Measured against the live public site on June 17, 2026 with `PROFILE_SERVER_URL=https://pixelarenafighter.nayanbhut.dev PROFILE_DOCKER_CONTAINER=pixel-arena-fighter-web node scripts/profile-multiplayer.mjs` using 16 active online rooms, 32 Socket.IO clients, and 60 Hz input from every client for 15 seconds after countdown.
 
 - Server tick target: 60 Hz / 16.67 ms fixed timestep.
-- Snapshot delivery interval: 16.85 ms average, 18.36 ms p95.
-- Snapshot volume: 28,514 samples captured out of roughly 28,804 expected.
-- Snapshot payload size: 1,014 bytes average, 1,112 bytes p95.
-- Room setup acks: 0.17 ms average for create, 0.20 ms average for join.
-- Server process usage: 14.5% CPU average, 24.3% CPU max, 87.4 MB RSS average, 88.5 MB RSS max.
+- Snapshot delivery interval: 16.28 ms average, 17.21 ms p95.
+- Snapshot volume: 29,446 samples captured out of roughly 28,801 expected.
+- Snapshot payload size: 1,043 bytes average, 1,139 bytes p95.
+- Room setup acks: 0.62 ms average for create, 0.50 ms average for join.
+- Live container usage: 16.4% CPU average, 18.4% CPU max, 55.2 MB RSS average, 58.1 MB RSS max.
 
 ## CPU Design
 
