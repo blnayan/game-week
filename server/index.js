@@ -8,6 +8,7 @@ import { createMatch, forfeitMatch, queueInput, stepMatch } from "../shared/matc
 import {
   assignPlayerId,
   canCloseRoom,
+  canCreateRoomWithStage,
   canJoinRoom,
   canResumeRoomPause,
   createInputRateGuard,
@@ -48,9 +49,12 @@ app.get("*", (_req, res) => {
 });
 
 io.on("connection", (socket) => {
-  socket.on("room:create", (_payload, ack) => {
+  socket.on("room:create", (payload, ack) => {
+    const creation = canCreateRoomWithStage(payload);
+    if (!creation.ok) return sendAck(ack, creation);
+
     const code = createRoomCode(new Set(rooms.keys()));
-    const room = createServerRoom(code);
+    const room = createServerRoom(code, creation.stageId);
     releaseSocketFromGameRooms(socket);
     rooms.set(code, room);
     joinRoom(socket, room, ack);
@@ -153,7 +157,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    room.match = createMatch("online");
+    room.match = createMatch("online", { stageId: room.match.stageId });
     room.rematchRequests.clear();
     room.phase = "countdown";
     sendAck(ack, rematch);
@@ -171,11 +175,11 @@ io.on("connection", (socket) => {
   });
 });
 
-function createServerRoom(code) {
+function createServerRoom(code, stageId) {
   const room = {
     code,
     players: new Map(),
-    match: createMatch("online"),
+    match: createMatch("online", { stageId }),
     phase: "waiting",
     rematchRequests: new Set(),
     countdownTimers: [],

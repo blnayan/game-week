@@ -1,3 +1,5 @@
+import { canCreateStageAtLevel, normalizeStageId } from "./stages.js";
+
 export const INPUT_FIELDS = [
   "left",
   "right",
@@ -21,6 +23,13 @@ export function createRoomCode(existingCodes = new Set()) {
     if (!existingCodes.has(code)) return code;
   }
   throw new Error("Unable to allocate room code");
+}
+
+export function canCreateRoomWithStage(payload = {}) {
+  const stageId = normalizeStageId(payload.stageId);
+  const allowed = canCreateStageAtLevel(stageId, payload.playerLevel);
+  if (!allowed.ok) return allowed;
+  return { ok: true, stageId };
 }
 
 export function normalizeRoomCode(payload) {
@@ -131,6 +140,7 @@ export function toPublicRoomStatus(room, { message = "", reason = null, rematch 
     players: room?.players?.size ?? 0,
     phase: room?.phase ?? null,
     status: room?.match?.status ?? null,
+    stageId: room?.match?.stageId ?? null,
     pausedBy: room?.pausedBy ?? null,
     rematch: {
       requestedBy: rematch?.requestedBy ?? null,
@@ -175,6 +185,7 @@ export function toPublicSnapshot(match, { phase } = {}) {
   return {
     status: match.status,
     ...(phase ? { phase } : {}),
+    stageId: match.stageId,
     winnerId: match.winnerId,
     endReason: match.endReason ?? null,
     elapsedMs: Math.round(match.elapsedMs),

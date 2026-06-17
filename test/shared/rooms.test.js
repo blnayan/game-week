@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_STAGE_ID, TRI_PLATFORM_STAGE_ID } from "../../shared/stages.js";
 import {
   assignPlayerId,
+  canCreateRoomWithStage,
   canCloseRoom,
   canJoinRoom,
   canResumeRoomPause,
@@ -89,6 +91,7 @@ describe("room helpers", () => {
       players: 2,
       phase: "playing",
       status: "playing",
+      stageId: null,
       pausedBy: null,
       rematch: { requestedBy: null, requested: 0, required: 2 }
     });
@@ -208,6 +211,7 @@ describe("room helpers", () => {
       players: 2,
       phase: "complete",
       status: "complete",
+      stageId: null,
       pausedBy: null,
       rematch: {
         requestedBy: "p1",
@@ -305,6 +309,43 @@ describe("room helpers", () => {
     guard.clear("socket-a");
 
     expect(guard.allow("socket-a", 1200)).toBe(true);
+  });
+
+  it("validates stage unlocks only for room creation", () => {
+    expect(canCreateRoomWithStage({ stageId: DEFAULT_STAGE_ID, playerLevel: 1 })).toEqual({
+      ok: true,
+      stageId: DEFAULT_STAGE_ID
+    });
+    expect(canCreateRoomWithStage({ stageId: TRI_PLATFORM_STAGE_ID, playerLevel: 9 })).toEqual({
+      ok: false,
+      error: "Stage unlocks at level 10"
+    });
+    expect(canCreateRoomWithStage({ stageId: TRI_PLATFORM_STAGE_ID, playerLevel: 10 })).toEqual({
+      ok: true,
+      stageId: TRI_PLATFORM_STAGE_ID
+    });
+  });
+
+  it("includes stage id in public room status and snapshots", () => {
+    const room = {
+      code: "ABCDE",
+      phase: "waiting",
+      match: { status: "playing", stageId: TRI_PLATFORM_STAGE_ID },
+      players: new Map([["socket-a", "p1"]]),
+      rematchRequests: new Set()
+    };
+    const match = {
+      stageId: TRI_PLATFORM_STAGE_ID,
+      status: "playing",
+      winnerId: null,
+      endReason: null,
+      elapsedMs: 0,
+      effects: [],
+      fighters: { p1: { id: "p1" }, p2: { id: "p2" } }
+    };
+
+    expect(toPublicRoomStatus(room)).toMatchObject({ stageId: TRI_PLATFORM_STAGE_ID });
+    expect(toPublicSnapshot(match)).toMatchObject({ stageId: TRI_PLATFORM_STAGE_ID });
   });
 
   it("rejects rematch requests when the room is gone, active, or missing an opponent", () => {
