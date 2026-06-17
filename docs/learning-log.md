@@ -1,6 +1,6 @@
 # Learning Log
 
-This log summarizes the learning path and build process for Pixel Arena Fighter. The project was built over three days, using AI to move quickly through an unfamiliar game-development stack while still making deliberate technical decisions.
+This log summarizes the learning path and build process for Pixel Arena Fighter. The original submission was built over a short Game Week timebox, then extended after early submission commit `216503429db57bce0c847c2d479cc36ca590565e` with stage selection, a new arena, stronger online-room behavior, HUD metrics, and more tests.
 
 ## Day 1: Scope, Stack Selection, And Core Prototype
 
@@ -43,14 +43,69 @@ This log summarizes the learning path and build process for Pixel Arena Fighter.
 - Added validation for fighter sheet dimensions, visible heights, opaque pixels, and edge clipping.
 - Added Docker support for production builds.
 - Verified Docker by deploying the game on a VPS.
-- Stress tested multiplayer and posted the result on GitLab.
+- Stress tested multiplayer and posted the result with the submission evidence.
 - Ran local verification with the sprite validator, test suite, production build, and browser smoke test.
 - Prepared submission documentation covering the learning process and AI methodology.
+
+## Post-Submission Iteration: Online Room Stability
+
+After the early submission, the online flow was hardened:
+
+- Fixed room-state lifecycle issues around disconnects, rematches, and result-screen transitions.
+- Replayed the latest room status and match snapshot for scenes that subscribe after an event already happened.
+- Preserved selected stages through rematch and results flows.
+- Added tests for room cleanup, rematch requests, result status text, and snapshot replay.
+- Added GitLab-style CI configuration for the unit test suite.
+
+The main learning was that real-time browser games need defensive lifecycle handling. A player can refresh, disconnect, leave during countdown, request a rematch, or arrive from an invite link at awkward times. Those transitions need explicit tests, not just manual playthroughs.
+
+## Post-Submission Iteration: Stage System And Tri Platform
+
+The stage system changed from a single hard-coded platform to a shared stage catalog:
+
+- Added `shared/stages.js` with stage ids, names, unlock levels, platform geometry, spawn points, and blast zones.
+- Added a default **Cosmic Floating** stage and an AI-generated **Tri Platform** stage.
+- Tuned Tri Platform to one large main platform plus three smaller platforms, with hitboxes aligned to the committed background art.
+- Added stage-aware landing, blast-zone, spawn, CPU, and rematch behavior.
+- Added a **Select Stage** button that opens a stage-selection submenu with preview cards.
+- Locked Tri Platform room creation until level 10.
+- Kept invite-link joining permissive so lower-level players can join a room created by someone who has unlocked the stage.
+
+The main learning was that art and gameplay geometry need to be treated as a single contract. The platform visuals looked close before the hitboxes were exact, but even small offsets were noticeable in play.
+
+## Post-Submission Iteration: HUD, Ping, And Match Readability
+
+The match screen gained more player-facing information:
+
+- Added P1/P2 nametags above fighters, then raised them so they do not block the character body.
+- Added FPS in the bottom-left corner.
+- Added ping in the bottom-right corner.
+- Moved FPS/ping to a DOM overlay anchored to the visible canvas so they stay in the correct places when Phaser scales or letterboxes the game.
+- Added an app-level `latency:ping` acknowledgement between client and server so online ping is measured directly.
+- Displayed local CPU ping as `Ping 0ms`, measured online latency as `Ping Nms`, and sub-millisecond online latency as `Ping <1ms`.
+- Kept online HUD ping refreshed even while waiting for another player.
+
+The main learning was that canvas-space coordinates and browser display coordinates are different. Phaser text positions work inside the game camera, but screen-corner metrics are more reliable as DOM elements anchored to the actual canvas rectangle.
+
+## Post-Submission Iteration: Profiling And Verification
+
+The project gained a repeatable multiplayer profiling script:
+
+- `npm run profile:multiplayer` runs `scripts/profile-multiplayer.mjs`.
+- The profiler can spawn a local server or target a deployed URL.
+- It creates multiple rooms and clients, sends 60 Hz input, records snapshot cadence and payload size, and optionally reads process or Docker stats.
+- The README records the June 17, 2026 live profile against 16 rooms and 32 clients.
+
+The test suite also expanded to cover stage geometry, stage selection, CPU fixed stepping, HUD layout, metric overlay positioning, online ping, result/rematch state, and profiler helpers.
 
 ## Current Submission Evidence
 
 - The game is deployed and accessible from the VPS deployment.
 - Docker has been verified through deployment.
-- Multiplayer has been stress tested, with evidence posted on GitLab.
-- The code repository is published on GitLab.
-- Demo video will be recorded separately.
+- Multiplayer has been stress tested and profiled.
+- The code repository is published to the configured remote.
+- Current local verification uses:
+  - `npm test`
+  - `npm run build`
+  - `node scripts/validate-fighter-sprites.mjs`
+- Demo video is handled separately from the repository docs.
