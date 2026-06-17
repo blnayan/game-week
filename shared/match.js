@@ -1,5 +1,5 @@
 import { ATTACKS } from "./attacks.js";
-import { MATCH, PHYSICS, STAGE } from "./constants.js";
+import { MATCH, PHYSICS } from "./constants.js";
 import {
   FighterStates,
   applyInputState,
@@ -9,10 +9,15 @@ import {
   setFighterState,
   tickFighterState
 } from "./fighterState.js";
+import { getStageDefinition, normalizeStageId } from "./stages.js";
 
-export function createMatch(mode = "cpu") {
+export function createMatch(mode = "cpu", options = {}) {
+  const stageId = normalizeStageId(options.stageId);
+  const stage = getStageDefinition(stageId);
+
   return {
     mode,
+    stageId,
     status: "playing",
     winnerId: null,
     endReason: null,
@@ -23,8 +28,8 @@ export function createMatch(mode = "cpu") {
       p2: createEmptyInput()
     },
     fighters: {
-      p1: createFighter("p1", STAGE.spawnA.x, STAGE.spawnA.y, STAGE.spawnA.facing, "blue"),
-      p2: createFighter("p2", STAGE.spawnB.x, STAGE.spawnB.y, STAGE.spawnB.facing, "orange")
+      p1: createFighter("p1", stage.spawnA.x, stage.spawnA.y, stage.spawnA.facing, "blue"),
+      p2: createFighter("p2", stage.spawnB.x, stage.spawnB.y, stage.spawnB.facing, "orange")
     }
   };
 }
@@ -81,7 +86,7 @@ export function stepMatch(match, dtMs) {
   resolveAttack(match, "p2", "p1");
 
   for (const fighterId of ["p1", "p2"]) {
-    integrateFighter(match.fighters[fighterId], dtMs);
+    integrateFighter(match, match.fighters[fighterId], dtMs);
     tickFighterState(match.fighters[fighterId], dtMs);
     handleBlastZone(match, fighterId);
   }
@@ -137,8 +142,10 @@ function resolveAttack(match, attackerId, defenderId) {
   match.effects.push({ type: attack.key === "heavy" ? "heavyImpact" : "hitSpark", x: defender.x, y: defender.y - 30 });
 }
 
-function integrateFighter(fighter, dtMs) {
+function integrateFighter(match, fighter, dtMs) {
+  const stage = getStageDefinition(match.stageId);
   const dtScale = dtMs / 16.67;
+  const previousFeet = fighter.y;
   fighter.velocity.y = Math.min(PHYSICS.maxFallSpeed, fighter.velocity.y + PHYSICS.gravity * dtScale);
   fighter.x += fighter.velocity.x * dtScale;
   fighter.y += fighter.velocity.y * dtScale;
@@ -148,10 +155,8 @@ function integrateFighter(fighter, dtMs) {
     if (fighter.activeAttack.remainingMs <= 0) fighter.activeAttack = null;
   }
 
-  const platform = STAGE.platform;
-  const feet = fighter.y;
-  const withinPlatformX = fighter.x > platform.x && fighter.x < platform.x + platform.width;
-  if (fighter.velocity.y >= 0 && feet >= platform.y && feet <= platform.y + 30 && withinPlatformX) {
+  const platform = findLandingPlatform(stage, fighter, previousFeet);
+  if (platform) {
     fighter.y = platform.y;
     fighter.velocity.y = 0;
     fighter.onGround = true;
@@ -161,9 +166,22 @@ function integrateFighter(fighter, dtMs) {
   }
 }
 
+function findLandingPlatform(stage, fighter, previousFeet) {
+  if (fighter.velocity.y < 0) return null;
+
+  return [...stage.platforms]
+    .sort((a, b) => a.y - b.y)
+    .find((platform) => {
+      const withinPlatformX = fighter.x >= platform.x && fighter.x <= platform.x + platform.width;
+      const wasAbovePlatform = previousFeet <= platform.y;
+      const withinLandingWindow = fighter.y >= platform.y - 30 && fighter.y <= platform.y + 30;
+      return withinPlatformX && wasAbovePlatform && withinLandingWindow;
+    });
+}
+
 function handleBlastZone(match, fighterId) {
   const fighter = match.fighters[fighterId];
-  const zone = STAGE.blastZone;
+  const zone = getStageDefinition(match.stageId).blastZone;
   const outside = fighter.x < zone.left || fighter.x > zone.right || fighter.y < zone.top || fighter.y > zone.bottom;
   if (!outside || fighter.state === FighterStates.Respawn || fighter.state === FighterStates.KO) return;
 

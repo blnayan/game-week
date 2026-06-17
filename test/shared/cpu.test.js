@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyInput, createMatch } from "../../shared/match.js";
 import { chooseCpuInput } from "../../shared/cpu.js";
+import { TRI_PLATFORM_STAGE_ID } from "../../shared/stages.js";
 
 describe("CPU input selection", () => {
   afterEach(() => {
@@ -70,6 +71,19 @@ describe("CPU input selection", () => {
     match.fighters.p2.y = 650;
     const input = chooseCpuInput(match, "p2", "hard");
     expect(input.jump).toBe(true);
+  });
+
+  it("recovers toward the active stage main platform", () => {
+    const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
+    const input = chooseCpuInput(match, "p2", "normal");
+
+    match.fighters.p2.y = 660;
+    match.fighters.p2.x = 100;
+    const recovering = chooseCpuInput(match, "p2", "normal");
+
+    expect(input).toEqual(expect.any(Object));
+    expect(recovering.right).toBe(true);
+    expect(recovering.jump).toBe(true);
   });
 
   it("pulses recovery jump across elapsed time windows", () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { STAGE } from "../../shared/constants.js";
 import { FighterStates } from "../../shared/fighterState.js";
 import { createMatch, forfeitMatch, queueInput, stepMatch } from "../../shared/match.js";
+import { TRI_PLATFORM_STAGE_ID } from "../../shared/stages.js";
 
 describe("match simulation", () => {
   it("applies damage and knockback when a light attack connects", () => {
@@ -12,6 +13,45 @@ describe("match simulation", () => {
     stepMatch(match, 100);
     expect(match.fighters.p2.damage).toBeGreaterThan(0);
     expect(match.fighters.p2.state).toBe(FighterStates.Hitstun);
+  });
+
+  it("creates tri-platform matches with stage-specific spawns", () => {
+    const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
+
+    expect(match.stageId).toBe(TRI_PLATFORM_STAGE_ID);
+    expect(match.fighters.p1.spawn).toMatchObject({ x: 430, y: 450, facing: 1 });
+    expect(match.fighters.p2.spawn).toMatchObject({ x: 850, y: 450, facing: -1 });
+  });
+
+  it.each([
+    ["left", 280, 460],
+    ["top", 640, 380],
+    ["right", 1000, 460],
+    ["main", 640, 540]
+  ])("lands on the %s tri-platform ledge", (_name, x, y) => {
+    const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
+    match.fighters.p1.x = x;
+    match.fighters.p1.y = y - 24;
+    match.fighters.p1.velocity.y = 14;
+
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p1.y).toBe(y);
+    expect(match.fighters.p1.onGround).toBe(true);
+    expect(match.fighters.p1.velocity.y).toBe(0);
+  });
+
+  it("does not snap to a tri-platform ledge when moving upward from below", () => {
+    const match = createMatch("cpu", { stageId: TRI_PLATFORM_STAGE_ID });
+    match.fighters.p1.x = 640;
+    match.fighters.p1.y = 410;
+    match.fighters.p1.velocity.y = -12;
+
+    stepMatch(match, 16.67);
+
+    expect(match.fighters.p1.y).toBeLessThan(410);
+    expect(match.fighters.p1.y).not.toBe(380);
+    expect(match.fighters.p1.onGround).toBe(false);
   });
 
   it("removes a stock when a fighter crosses the bottom blast zone", () => {

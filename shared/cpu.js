@@ -1,5 +1,5 @@
-import { STAGE } from "./constants.js";
 import { createEmptyInput } from "./match.js";
+import { getMainPlatform } from "./stages.js";
 
 const DIFFICULTY = {
   easy: { lightRange: 70, heavyRange: 0 },
@@ -24,8 +24,9 @@ export function chooseCpuInput(match, cpuId = "p2", difficulty = "normal") {
   const distance = Math.abs(dx);
   const pulseWindow = Math.floor((match.elapsedMs ?? 0) / PULSE_MS);
   const shouldPulse = pulseWindow % 2 === 0;
+  const mainPlatform = getMainPlatform(match.stageId);
 
-  if (cpu.y > STAGE.platform.y + 80) {
+  if (cpu.y > mainPlatform.y + 80) {
     input.jump = shouldPulse;
     input[dx > 0 ? "right" : "left"] = true;
     return input;
