@@ -164,6 +164,17 @@ describe("createSocketClient", () => {
     expect(handler).toHaveBeenCalledWith({ message: "Fight", players: 2, roomCode: "ROOM1" });
   });
 
+  it("replays the latest match snapshot to scenes that subscribe after room acknowledgement", () => {
+    const client = createSocketClient({ ackTimeoutMs: 100 });
+    const snapshot = { status: "playing", stageId: "tri-platform", fighters: {} };
+    const handler = vi.fn();
+
+    fakeSocket.emitServer("match:snapshot", snapshot);
+    client.onSnapshot(handler);
+
+    expect(handler).toHaveBeenCalledWith(snapshot);
+  });
+
   it("clears pending ack timers and listeners when disconnected mid-request", async () => {
     const client = createSocketClient({ ackTimeoutMs: 100 });
     const pending = client.joinRoom("ROOM1");

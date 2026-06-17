@@ -6,7 +6,9 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
   const socket = socketFactory();
   const pendingAcks = new Set();
   const statusHandlers = new Set();
+  const snapshotHandlers = new Set();
   let latestStatus = null;
+  let latestSnapshot = null;
   let disconnected = false;
 
   const handlePageHide = () => {
@@ -17,6 +19,12 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
     latestStatus = status;
     for (const handler of statusHandlers) {
       handler(status);
+    }
+  });
+  socket.on("match:snapshot", (snapshot) => {
+    latestSnapshot = snapshot;
+    for (const handler of snapshotHandlers) {
+      handler(snapshot);
     }
   });
 
@@ -66,9 +74,10 @@ export function createSocketClient({ ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS, sock
     setPaused(roomCode, paused) {
       return emitWithAck(socket, "match:pause", { roomCode, paused: Boolean(paused) }, ackTimeoutMs, pendingAcks);
     },
-    onSnapshot(handler) {
-      socket.on("match:snapshot", handler);
-      return () => socket.off("match:snapshot", handler);
+    onSnapshot(handler, { replayLatest = true } = {}) {
+      snapshotHandlers.add(handler);
+      if (replayLatest && latestSnapshot) handler(latestSnapshot);
+      return () => snapshotHandlers.delete(handler);
     },
     onStatus(handler, { replayLatest = true } = {}) {
       statusHandlers.add(handler);
