@@ -46,7 +46,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(express.static(distPath));
-app.get("*", (_req, res) => {
+// Express 5 (path-to-regexp v8) requires named wildcards; "/{*splat}" also matches "/".
+app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
