@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite --host 0.0.0.0\" \"nodemon server/index.js\"",
+    "dev": "concurrently \"vite --host 0.0.0.0\" \"node --watch server/index.js\"",
     "build": "vite build",
     "start": "node server/index.js",
     "profile:multiplayer": "node scripts/profile-multiplayer.mjs",
@@ -12,15 +12,14 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "phaser": "^3.90.0",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "express": "^5.3.0",
+    "phaser": "^4.2.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "nodemon": "^3.1.10",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.4"
+    "concurrently": "^10.0.6",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   }
 }
